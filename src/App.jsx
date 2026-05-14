@@ -1,0 +1,1146 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import './App.css'
+
+const STORAGE_KEY = 'vas-smartpozyczka-demo-v1'
+
+const LENDER = {
+  name: 'SmartPożyczka',
+  commissionPercent: 25,
+}
+
+const BASE_CLIENTS = [
+  {
+    id: 'c1',
+    name: 'Jan Kowalski',
+    loanNumber: 'SP-1001',
+    loanAmount: 2500,
+    basePoints: 120,
+  },
+  {
+    id: 'c2',
+    name: 'Anna Nowak',
+    loanNumber: 'SP-1002',
+    loanAmount: 1800,
+    basePoints: 60,
+  },
+  {
+    id: 'c3',
+    name: 'Piotr Zieliński',
+    loanNumber: 'SP-1003',
+    loanAmount: 3200,
+    basePoints: 0,
+  },
+]
+
+const VAS_PRODUCTS = [
+  {
+    id: 'p1',
+    name: 'Telemedycyna',
+    description: 'Konsultacje online 24/7, e-recepty, e-zwolnienia.',
+    pricePln: 29,
+    pointsReward: 30,
+    icon: '🩺',
+  },
+  {
+    id: 'p2',
+    name: 'Assistance Domowy',
+    description: 'Hydraulik, elektryk, ślusarz — interwencja w domu.',
+    pricePln: 39,
+    pointsReward: 45,
+    icon: '🏠',
+  },
+  {
+    id: 'p3',
+    name: 'Ochrona Pupil',
+    description: 'Ubezpieczenie weterynaryjne i assistance dla zwierząt.',
+    pricePln: 49,
+    pointsReward: 60,
+    icon: '🐾',
+  },
+]
+
+const BENEFITS = [
+  {
+    id: 'b1',
+    title: 'Przesunięcie terminu spłaty',
+    description: 'Jednorazowe przesunięcie raty o 14 dni (demo).',
+    costPoints: 100,
+    icon: '📅',
+  },
+  {
+    id: 'b2',
+    title: 'Spłata 50 zł z konta punktów',
+    description: 'Kwota zostanie uwzględniona przy najbliższej racie (demo).',
+    costPoints: 150,
+    icon: '💳',
+  },
+]
+
+const ROLE_NAV = [
+  {
+    id: 'client',
+    label: 'Portal Klienta',
+    short: 'Klient',
+    icon: '👤',
+    desc: 'Tylko własne konto pożyczkobiorcy',
+  },
+  {
+    id: 'lender',
+    label: 'Panel Pożyczkodawcy',
+    short: 'Lender',
+    icon: '🏦',
+    desc: `Klienci i VAS partnera ${LENDER.name}`,
+  },
+  {
+    id: 'admin',
+    label: 'Admin Platformy',
+    short: 'Admin',
+    icon: '⚙️',
+    desc: 'Pełny widok operatora platformy',
+  },
+]
+
+function loadPersisted() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function buildInitialState() {
+  const persisted = loadPersisted()
+  const pointsByClient = {}
+  BASE_CLIENTS.forEach((c) => {
+    pointsByClient[c.id] =
+      persisted?.pointsByClient?.[c.id] ?? c.basePoints
+  })
+  const rawLogins = persisted?.clientLogins
+  const rawObj =
+    rawLogins && typeof rawLogins === 'object' && !Array.isArray(rawLogins)
+      ? rawLogins
+      : {}
+  const clientLogins = {}
+  BASE_CLIENTS.forEach((c) => {
+    const e = rawObj[c.id]
+    const count = Number(e?.count) || 0
+    if (count > 0 && e?.lastAt) {
+      clientLogins[c.id] = { lastAt: e.lastAt, count }
+    }
+  })
+  return {
+    pointsByClient,
+    purchases: Array.isArray(persisted?.purchases) ? persisted.purchases : [],
+    benefitUses: Array.isArray(persisted?.benefitUses)
+      ? persisted.benefitUses
+      : [],
+    clientLogins,
+  }
+}
+
+function formatMoney(n) {
+  return new Intl.NumberFormat('pl-PL', {
+    style: 'currency',
+    currency: 'PLN',
+    maximumFractionDigits: 0,
+  }).format(n)
+}
+
+function formatDate(iso) {
+  return new Intl.DateTimeFormat('pl-PL', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(iso))
+}
+
+function uid() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function commissionOnPrice(pricePln) {
+  return Math.round((pricePln * LENDER.commissionPercent) / 100)
+}
+
+export default function App() {
+  const [role, setRole] = useState('client')
+  const [loanLogin, setLoanLogin] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [clientSessionId, setClientSessionId] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const [pointsByClient, setPointsByClient] = useState(() =>
+    buildInitialState().pointsByClient,
+  )
+  const [purchases, setPurchases] = useState(() => buildInitialState().purchases)
+  const [benefitUses, setBenefitUses] = useState(
+    () => buildInitialState().benefitUses,
+  )
+  const [clientLogins, setClientLogins] = useState(
+    () => buildInitialState().clientLogins,
+  )
+
+  const persist = useCallback(
+    (nextPoints, nextPurchases, nextBenefitUses, nextLogins) => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          pointsByClient: nextPoints,
+          purchases: nextPurchases,
+          benefitUses: nextBenefitUses,
+          clientLogins: nextLogins,
+        }),
+      )
+    },
+    [],
+  )
+
+  useEffect(() => {
+    persist(pointsByClient, purchases, benefitUses, clientLogins)
+  }, [pointsByClient, purchases, benefitUses, clientLogins, persist])
+
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3200)
+  }, [])
+
+  const sessionClient = useMemo(
+    () => BASE_CLIENTS.find((c) => c.id === clientSessionId) ?? null,
+    [clientSessionId],
+  )
+
+  const pointsSession = sessionClient
+    ? pointsByClient[sessionClient.id] ?? 0
+    : 0
+
+  const clientPurchases = useMemo(() => {
+    if (!clientSessionId) return []
+    return purchases
+      .filter((p) => p.clientId === clientSessionId)
+      .sort((a, b) => new Date(b.at) - new Date(a.at))
+  }, [purchases, clientSessionId])
+
+  const myProductsGrouped = useMemo(() => {
+    const map = {}
+    clientPurchases.forEach((p) => {
+      if (!map[p.productId]) {
+        map[p.productId] = {
+          productId: p.productId,
+          name: p.productName,
+          count: 0,
+          lastAt: p.at,
+        }
+      }
+      map[p.productId].count += 1
+      if (new Date(p.at) > new Date(map[p.productId].lastAt)) {
+        map[p.productId].lastAt = p.at
+      }
+    })
+    return Object.values(map).sort((a, b) => b.lastAt.localeCompare(a.lastAt))
+  }, [clientPurchases])
+
+  const purchaseHistoryOnly = useMemo(() => {
+    return clientPurchases.map((p) => ({
+      id: p.id,
+      at: p.at,
+      productName: p.productName,
+      pricePln: p.pricePln,
+      pointsEarned: p.pointsEarned,
+    }))
+  }, [clientPurchases])
+
+  const clientActivityTimeline = useMemo(() => {
+    if (!clientSessionId) return []
+    const buys = purchases
+      .filter((p) => p.clientId === clientSessionId)
+      .map((p) => ({
+        kind: 'purchase',
+        at: p.at,
+        label: `Zakup: ${p.productName}`,
+        detail: `${formatMoney(p.pricePln)} · +${p.pointsEarned} pkt`,
+      }))
+    const bus = benefitUses
+      .filter((b) => b.clientId === clientSessionId)
+      .map((b) => ({
+        kind: 'benefit',
+        at: b.at,
+        label: b.title,
+        detail: `−${b.costPoints} pkt`,
+      }))
+    return [...buys, ...bus].sort((a, b) => new Date(b.at) - new Date(a.at))
+  }, [purchases, benefitUses, clientSessionId])
+
+  const totalVasRevenue = useMemo(
+    () => purchases.reduce((s, p) => s + p.pricePln, 0),
+    [purchases],
+  )
+
+  const lenderCommissionTotal = useMemo(
+    () => Math.round((totalVasRevenue * LENDER.commissionPercent) / 100),
+    [totalVasRevenue],
+  )
+
+  const platformNetRevenue = useMemo(
+    () => Math.max(0, totalVasRevenue - lenderCommissionTotal),
+    [totalVasRevenue, lenderCommissionTotal],
+  )
+
+  const productStats = useMemo(() => {
+    const map = {}
+    VAS_PRODUCTS.forEach((pr) => {
+      map[pr.id] = { ...pr, count: 0, revenue: 0 }
+    })
+    purchases.forEach((p) => {
+      if (!map[p.productId]) return
+      map[p.productId].count += 1
+      map[p.productId].revenue += p.pricePln
+    })
+    return Object.values(map)
+  }, [purchases])
+
+  const loggedInClientCount = useMemo(() => {
+    return BASE_CLIENTS.filter((c) => (clientLogins[c.id]?.count ?? 0) > 0).length
+  }, [clientLogins])
+
+  const totalPointsHeldByClients = useMemo(() => {
+    return BASE_CLIENTS.reduce(
+      (s, c) => s + (pointsByClient[c.id] ?? c.basePoints),
+      0,
+    )
+  }, [pointsByClient])
+
+  const totalPointsRedeemed = useMemo(
+    () => benefitUses.reduce((s, b) => s + b.costPoints, 0),
+    [benefitUses],
+  )
+
+  const lenderPortalRows = useMemo(() => {
+    return BASE_CLIENTS.map((c) => {
+      const clientPurch = purchases.filter((x) => x.clientId === c.id)
+      const spend = clientPurch.reduce((s, x) => s + x.pricePln, 0)
+      const pointsEarnedFromVas = clientPurch.reduce(
+        (s, x) => s + x.pointsEarned,
+        0,
+      )
+      const pointsAvailable = pointsByClient[c.id] ?? c.basePoints
+      const benefitsForClient = benefitUses.filter((b) => b.clientId === c.id)
+      const benefitCount = benefitsForClient.length
+      const pointsSpentOnBenefits = benefitsForClient.reduce(
+        (s, b) => s + b.costPoints,
+        0,
+      )
+      const nameCount = {}
+      clientPurch.forEach((p) => {
+        nameCount[p.productName] = (nameCount[p.productName] ?? 0) + 1
+      })
+      const vasSummary =
+        Object.keys(nameCount).length === 0
+          ? '—'
+          : Object.entries(nameCount)
+              .map(([n, ct]) => `${n} ×${ct}`)
+              .join(', ')
+      const login = clientLogins[c.id]
+      const sessionActiveHere = clientSessionId === c.id
+      return {
+        ...c,
+        spend,
+        pointsEarnedFromVas,
+        pointsAvailable,
+        purchaseCount: clientPurch.length,
+        vasSummary,
+        benefitCount,
+        pointsSpentOnBenefits,
+        lastLoginAt: login?.lastAt ?? null,
+        loginCount: login?.count ?? 0,
+        sessionActiveHere,
+      }
+    })
+  }, [
+    purchases,
+    pointsByClient,
+    benefitUses,
+    clientLogins,
+    clientSessionId,
+  ])
+
+  const lenderPurchaseHistory = useMemo(() => {
+    return [...purchases]
+      .sort((a, b) => new Date(b.at) - new Date(a.at))
+      .map((row) => {
+        const cl = BASE_CLIENTS.find((c) => c.id === row.clientId)
+        return {
+          ...row,
+          clientName: cl?.name ?? '—',
+          loanNumber: cl?.loanNumber ?? '—',
+          commission: commissionOnPrice(row.pricePln),
+        }
+      })
+  }, [purchases])
+
+  const handleLoanLogin = (e) => {
+    e.preventDefault()
+    const norm = loanLogin.trim().toUpperCase()
+    const found = BASE_CLIENTS.find(
+      (c) => c.loanNumber.toUpperCase() === norm,
+    )
+    if (!found) {
+      setLoginError(
+        'Nieprawidłowy numer pożyczki. Sprawdź dane i spróbuj ponownie.',
+      )
+      return
+    }
+    setLoginError('')
+    setClientSessionId(found.id)
+    setLoanLogin('')
+    setClientLogins((prev) => ({
+      ...prev,
+      [found.id]: {
+        lastAt: new Date().toISOString(),
+        count: (prev[found.id]?.count ?? 0) + 1,
+      },
+    }))
+    showToast(`Witaj, ${found.name.split(' ')[0]}.`)
+  }
+
+  const logoutClient = () => {
+    setClientSessionId(null)
+    setLoanLogin('')
+    setLoginError('')
+    showToast('Wylogowano z portalu klienta.')
+  }
+
+  const buyProduct = (product) => {
+    if (!sessionClient) {
+      showToast('Zaloguj się numerem pożyczki.', 'warn')
+      return
+    }
+    const entry = {
+      id: uid(),
+      clientId: sessionClient.id,
+      productId: product.id,
+      productName: product.name,
+      pricePln: product.pricePln,
+      pointsEarned: product.pointsReward,
+      at: new Date().toISOString(),
+    }
+    setPurchases((prev) => [entry, ...prev])
+    setPointsByClient((prev) => ({
+      ...prev,
+      [sessionClient.id]:
+        (prev[sessionClient.id] ?? 0) + product.pointsReward,
+    }))
+    showToast(`Dodano ${product.name}. +${product.pointsReward} pkt.`)
+  }
+
+  const redeemBenefit = (benefit) => {
+    if (!sessionClient) return
+    const bal = pointsByClient[sessionClient.id] ?? 0
+    if (bal < benefit.costPoints) {
+      showToast('Za mało punktów na ten benefit.', 'warn')
+      return
+    }
+    setBenefitUses((prev) => [
+      {
+        id: uid(),
+        clientId: sessionClient.id,
+        benefitId: benefit.id,
+        title: benefit.title,
+        costPoints: benefit.costPoints,
+        at: new Date().toISOString(),
+      },
+      ...prev,
+    ])
+    setPointsByClient((prev) => ({
+      ...prev,
+      [sessionClient.id]: (prev[sessionClient.id] ?? 0) - benefit.costPoints,
+    }))
+    showToast(`Wykorzystano benefit: ${benefit.title}`)
+  }
+
+  const resetDemo = () => {
+    const next = {}
+    BASE_CLIENTS.forEach((c) => {
+      next[c.id] = c.basePoints
+    })
+    setPointsByClient(next)
+    setPurchases([])
+    setBenefitUses([])
+    setClientLogins({})
+    setClientSessionId(null)
+    setLoanLogin('')
+    setLoginError('')
+    localStorage.removeItem(STORAGE_KEY)
+    showToast('Przywrócono dane demo.')
+  }
+
+  const switchRole = (next) => {
+    setRole(next)
+    setLoginError('')
+  }
+
+  const roleMeta = ROLE_NAV.find((r) => r.id === role)
+
+  return (
+    <div className="vas-app">
+      <header className="vas-topbar">
+        <div className="vas-brand">
+          <div className="vas-logo" aria-hidden>
+            VAS
+          </div>
+          <div>
+            <div className="vas-brand-title">VAS Loyalty</div>
+            <div className="vas-brand-sub">
+              {role === 'client'
+                ? 'Portal Klienta · tylko Twoje konto'
+                : `${roleMeta?.label ?? ''} · demo (osobny widok)`}
+            </div>
+          </div>
+        </div>
+        <nav className="vas-nav" aria-label="Wybór widoku demo — osobne role">
+          {ROLE_NAV.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`vas-nav-btn ${role === item.id ? 'is-active' : ''}`}
+              onClick={() => switchRole(item.id)}
+              title={item.desc}
+            >
+              <span className="vas-nav-ico">{item.icon}</span>
+              <span className="vas-nav-label-full">{item.label}</span>
+              <span className="vas-nav-label-short">{item.short}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="vas-topbar-actions">
+          {role === 'client' && clientSessionId ? (
+            <button type="button" className="vas-btn vas-btn-ghost" onClick={logoutClient}>
+              Wyloguj
+            </button>
+          ) : null}
+          <button type="button" className="vas-btn vas-btn-ghost" onClick={resetDemo}>
+            Reset demo
+          </button>
+        </div>
+      </header>
+
+      {role === 'client' && !clientSessionId ? (
+        <main className="vas-login-main">
+          <div className="vas-login-grid">
+            <section className="vas-login-hero" aria-hidden="false">
+              <p className="vas-login-eyebrow">Program lojalnościowy</p>
+              <h1 className="vas-login-title">Portal Klienta</h1>
+              <p className="vas-login-lead">
+                Zaloguj się numerem pożyczki, aby zobaczyć saldo punktów, aktywne usługi
+                oraz benefity dostępne wyłącznie na Twoim koncie.
+              </p>
+              <ul className="vas-login-bullets">
+                <li>Bezpieczny dostęp identyfikatorem umowy</li>
+                <li>Brak podglądu danych innych klientów</li>
+                <li>Historia zakupów i transakcji punktowych</li>
+              </ul>
+            </section>
+            <section className="vas-login-card-wrap" aria-labelledby="login-heading">
+              <div className="vas-login-card">
+                <h2 id="login-heading" className="vas-login-card-title">
+                  Logowanie
+                </h2>
+                <p className="vas-login-card-sub">
+                  Wpisz numer pożyczki przypisany do Twojej umowy.
+                </p>
+                <form className="vas-form" onSubmit={handleLoanLogin}>
+                  <label className="vas-label" htmlFor="loan">
+                    Numer pożyczki
+                  </label>
+                  <input
+                    id="loan"
+                    className="vas-input vas-input-lg"
+                    placeholder="np. SP-1001"
+                    value={loanLogin}
+                    onChange={(e) => setLoanLogin(e.target.value)}
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                  />
+                  {loginError ? (
+                    <p className="vas-form-error" role="alert">
+                      {loginError}
+                    </p>
+                  ) : null}
+                  <button type="submit" className="vas-btn vas-btn-primary vas-btn-block vas-mt-md">
+                    Zaloguj się
+                  </button>
+                </form>
+                <p className="vas-login-demo-hint">
+                  Demo: numery <strong>SP-1001</strong>, <strong>SP-1002</strong>,{' '}
+                  <strong>SP-1003</strong> (bez ujawniania tożsamości do momentu logowania).
+                </p>
+              </div>
+            </section>
+          </div>
+        </main>
+      ) : null}
+
+      {role === 'client' && clientSessionId ? (
+        <div className="vas-client-layout">
+          <main className="vas-client-main">
+            <section className="vas-section vas-client-hero-card" aria-label="Podsumowanie konta">
+              <div className="vas-client-hero-top">
+                <div>
+                  <p className="vas-login-eyebrow">Witaj ponownie</p>
+                  <h1 className="vas-h1 vas-mb-z">{sessionClient.name}</h1>
+                  <p className="vas-muted vas-text-sm">
+                    Numer pożyczki:{' '}
+                    <span className="vas-mono-strong">{sessionClient.loanNumber}</span>
+                  </p>
+                </div>
+                <div className="vas-client-points-hero">
+                  <span className="vas-client-points-label">Saldo punktów</span>
+                  <span className="vas-client-points-num">{pointsSession}</span>
+                </div>
+              </div>
+            </section>
+
+            <div className="vas-client-grid">
+              <section className="vas-card vas-card-elevated" aria-labelledby="my-vas-title">
+                <div className="vas-card-head">
+                  <h2 id="my-vas-title" className="vas-h2">
+                    Moje produkty VAS
+                  </h2>
+                  <span className="vas-badge vas-badge-green">Aktywne</span>
+                </div>
+                {myProductsGrouped.length === 0 ? (
+                  <p className="vas-muted">
+                    Nie masz jeszcze wykupionych produktów VAS. Skorzystaj z katalogu poniżej.
+                  </p>
+                ) : (
+                  <ul className="vas-my-products">
+                    {myProductsGrouped.map((row) => {
+                      const def = VAS_PRODUCTS.find((p) => p.id === row.productId)
+                      return (
+                        <li key={row.productId} className="vas-my-product-row">
+                          <span className="vas-my-product-ico" aria-hidden>
+                            {def?.icon ?? '✓'}
+                          </span>
+                          <div>
+                            <div className="vas-my-product-name">{row.name}</div>
+                            <div className="vas-muted vas-text-sm">
+                              Ostatnio: {formatDate(row.lastAt)} · {row.count}{' '}
+                              {row.count === 1 ? 'zakup' : 'zakupy'}
+                            </div>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </section>
+
+              <section className="vas-card vas-card-elevated" aria-labelledby="catalog-title">
+                <div className="vas-card-head">
+                  <h2 id="catalog-title" className="vas-h2">
+                    Katalog VAS
+                  </h2>
+                  <span className="vas-badge">Kup teraz</span>
+                </div>
+                <div className="vas-product-grid vas-product-grid-client">
+                  {VAS_PRODUCTS.map((p) => (
+                    <article key={p.id} className="vas-product-card">
+                      <div className="vas-product-icon" aria-hidden>
+                        {p.icon}
+                      </div>
+                      <h3 className="vas-h3">{p.name}</h3>
+                      <p className="vas-muted vas-text-sm">{p.description}</p>
+                      <div className="vas-product-price-row">
+                        <div>
+                          <div className="vas-price">{formatMoney(p.pricePln)}</div>
+                          <div className="vas-muted vas-text-sm">/ miesiąc (demo)</div>
+                        </div>
+                        <div className="vas-points-badge">+{p.pointsReward} pkt</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="vas-btn vas-btn-secondary vas-btn-block"
+                        onClick={() => buyProduct(p)}
+                      >
+                        Kup VAS
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="vas-client-grid-2 vas-mt-lg">
+              <section className="vas-card vas-card-elevated" aria-labelledby="benefits-title">
+                <div className="vas-card-head">
+                  <h2 id="benefits-title" className="vas-h2">
+                    Benefity za punkty
+                  </h2>
+                  <span className="vas-badge vas-badge-navy">Wykorzystaj</span>
+                </div>
+                <div className="vas-benefit-list">
+                  {BENEFITS.map((b) => {
+                    const ok = pointsSession >= b.costPoints
+                    return (
+                      <div key={b.id} className="vas-benefit-card">
+                        <div className="vas-benefit-ico">{b.icon}</div>
+                        <div className="vas-benefit-body">
+                          <div className="vas-h3 vas-mb-z">{b.title}</div>
+                          <p className="vas-muted vas-text-sm vas-mb-sm">{b.description}</p>
+                          <div className="vas-benefit-foot">
+                            <span className="vas-cost-pill">{b.costPoints} pkt</span>
+                            <button
+                              type="button"
+                              className="vas-btn vas-btn-primary vas-btn-sm"
+                              disabled={!ok}
+                              onClick={() => redeemBenefit(b)}
+                            >
+                              Wykorzystaj
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <section className="vas-card vas-card-elevated" aria-labelledby="history-title">
+                <div className="vas-card-head">
+                  <h2 id="history-title" className="vas-h2">
+                    Historia zakupów
+                  </h2>
+                  <span className="vas-badge vas-badge-green">Tylko Twoje</span>
+                </div>
+                {purchaseHistoryOnly.length === 0 ? (
+                  <p className="vas-muted">Brak zakupów na koncie.</p>
+                ) : (
+                  <div className="vas-table-wrap vas-table-wrap-tight">
+                    <table className="vas-table vas-table-compact">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Produkt</th>
+                          <th>Kwota</th>
+                          <th>Punkty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {purchaseHistoryOnly.map((row) => (
+                          <tr key={row.id}>
+                            <td>{formatDate(row.at)}</td>
+                            <td>{row.productName}</td>
+                            <td>{formatMoney(row.pricePln)}</td>
+                            <td>
+                              <span className="vas-tag-pos">+{row.pointsEarned}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="vas-divider vas-mt-md" />
+                <div className="vas-card-head vas-mb-z">
+                  <h3 className="vas-h3">Aktywność na koncie</h3>
+                </div>
+                {clientActivityTimeline.length === 0 ? (
+                  <p className="vas-muted vas-text-sm">Brak wpisów.</p>
+                ) : (
+                  <ul className="vas-timeline vas-timeline-compact">
+                    {clientActivityTimeline.slice(0, 6).map((h, idx) => (
+                      <li key={`${h.at}-${idx}`} className="vas-tl-item">
+                        <div className="vas-tl-dot" />
+                        <div className="vas-tl-card">
+                          <div className="vas-tl-date">{formatDate(h.at)}</div>
+                          <div className="vas-tl-title">{h.label}</div>
+                          <div className="vas-tl-meta">{h.detail}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          </main>
+        </div>
+      ) : null}
+
+      {role === 'lender' ? (
+        <div className="vas-pro-shell">
+          <main className="vas-pro-main">
+            <div className="vas-role-banner">
+              <span className="vas-role-pill">{LENDER.name}</span>
+              <span className="vas-role-pill vas-role-pill-muted">
+                Panel Pożyczkodawcy
+              </span>
+            </div>
+            <section className="vas-section" aria-labelledby="lender-title">
+              <div className="vas-pagehead">
+                <div>
+                  <h1 id="lender-title" className="vas-h1">
+                    Panel Pożyczkodawcy
+                  </h1>
+                  <p className="vas-lead">
+                    Widok operacyjny wyłącznie dla klientów {LENDER.name}: logowania do
+                    portalu, sprzedaż VAS, punkty i prowizje partnera (demo bez backendu).
+                  </p>
+                </div>
+              </div>
+
+              <div className="vas-kpi-grid vas-kpi-grid-6">
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Zalogowani klienci</div>
+                  <div className="vas-kpi-value">{loggedInClientCount}</div>
+                  <div className="vas-kpi-foot">
+                    Unikalni klienci z co najmniej jednym logowaniem w portalu
+                  </div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Liczba zakupionych VAS</div>
+                  <div className="vas-kpi-value">{purchases.length}</div>
+                  <div className="vas-kpi-foot">Wszystkie transakcje dodatków</div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Łączna sprzedaż VAS</div>
+                  <div className="vas-kpi-value">{formatMoney(totalVasRevenue)}</div>
+                  <div className="vas-kpi-foot">Przychód z usług VAS</div>
+                </article>
+                <article className="vas-kpi vas-kpi-accent">
+                  <div className="vas-kpi-label">Prowizja dla {LENDER.name}</div>
+                  <div className="vas-kpi-value">
+                    {formatMoney(lenderCommissionTotal)}
+                  </div>
+                  <div className="vas-kpi-foot">
+                    {LENDER.commissionPercent}% od sprzedaży VAS
+                  </div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Łączne salda punktów klientów</div>
+                  <div className="vas-kpi-value">{totalPointsHeldByClients} pkt</div>
+                  <div className="vas-kpi-foot">Suma aktualnych punktów na kontach</div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Wykorzystane punkty</div>
+                  <div className="vas-kpi-value">{totalPointsRedeemed} pkt</div>
+                  <div className="vas-kpi-foot">Łącznie na benefity (redemption)</div>
+                </article>
+              </div>
+
+              <div className="vas-card vas-card-elevated vas-mt-lg">
+                <div className="vas-card-head">
+                  <h2 className="vas-h2">Klienci {LENDER.name}</h2>
+                  <span className="vas-badge">CRM</span>
+                </div>
+                <div className="vas-table-wrap">
+                  <table className="vas-table">
+                    <thead>
+                      <tr>
+                        <th>Klient</th>
+                        <th>Numer pożyczki</th>
+                        <th>Status logowania</th>
+                        <th>Zakupione VAS</th>
+                        <th>Wartość zakupów</th>
+                        <th>Punkty zdobyte</th>
+                        <th>Punkty dostępne</th>
+                        <th>Wykorzystane benefity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lenderPortalRows.map((row) => (
+                        <tr key={row.id}>
+                          <td>
+                            <strong className="vas-text-strong">{row.name}</strong>
+                          </td>
+                          <td>{row.loanNumber}</td>
+                          <td>
+                            {row.sessionActiveHere ? (
+                              <span className="vas-status vas-status-live">Sesja aktywna</span>
+                            ) : row.loginCount > 0 ? (
+                              <span className="vas-status vas-status-ok">
+                                Ostatnio: {formatDate(row.lastLoginAt)}
+                                <span className="vas-muted vas-text-sm">
+                                  {' '}
+                                  ({row.loginCount}{' '}
+                                  {row.loginCount === 1 ? 'logowanie' : 'logowań'})
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="vas-status vas-status-off">Brak logowania</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="vas-cell-multiline" title={row.vasSummary}>
+                              {row.vasSummary}
+                            </span>
+                          </td>
+                          <td>{formatMoney(row.spend)}</td>
+                          <td>{row.pointsEarnedFromVas} pkt</td>
+                          <td>
+                            <strong>{row.pointsAvailable}</strong> pkt
+                          </td>
+                          <td>
+                            {row.benefitCount > 0
+                              ? `${row.benefitCount} (${row.pointsSpentOnBenefits} pkt)`
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="vas-card vas-card-elevated vas-mt-lg">
+                <div className="vas-card-head">
+                  <h2 className="vas-h2">Historia zakupów VAS klientów</h2>
+                  <span className="vas-badge vas-badge-green">Transakcje</span>
+                </div>
+                {lenderPurchaseHistory.length === 0 ? (
+                  <p className="vas-muted">Brak zakupów VAS.</p>
+                ) : (
+                  <div className="vas-table-wrap">
+                    <table className="vas-table">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Klient</th>
+                          <th>Numer pożyczki</th>
+                          <th>Produkt VAS</th>
+                          <th>Cena</th>
+                          <th>Punkty</th>
+                          <th>Prowizja pożyczkodawcy</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lenderPurchaseHistory.map((row) => (
+                          <tr key={row.id}>
+                            <td>{formatDate(row.at)}</td>
+                            <td>{row.clientName}</td>
+                            <td>{row.loanNumber}</td>
+                            <td>{row.productName}</td>
+                            <td>{formatMoney(row.pricePln)}</td>
+                            <td>
+                              <span className="vas-tag-pos">+{row.pointsEarned}</span>
+                            </td>
+                            <td>{formatMoney(row.commission)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="vas-card vas-card-soft vas-mt-lg">
+                <div className="vas-card-head">
+                  <h2 className="vas-h2">Status wykorzystania punktów (skrót)</h2>
+                </div>
+                <p className="vas-muted vas-mb-md">
+                  Punkty zdobyte z VAS vs. dostępne saldo vs. punkty zużyte na benefity —
+                  szczegóły w tabeli klientów powyżej.
+                </p>
+                <ul className="vas-product-mini">
+                  {lenderPortalRows.map((r) => (
+                    <li key={r.id}>
+                      <span>{r.name}</span>
+                      <span className="vas-muted">
+                        zdobyte {r.pointsEarnedFromVas} pkt · dostępne{' '}
+                        <strong>{r.pointsAvailable}</strong> pkt · benefity{' '}
+                        {r.pointsSpentOnBenefits} pkt
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          </main>
+        </div>
+      ) : null}
+
+      {role === 'admin' ? (
+        <div className="vas-pro-shell">
+          <main className="vas-pro-main">
+            <div className="vas-role-banner">
+              <span className="vas-role-pill vas-role-pill-admin">Admin Platformy</span>
+              <span className="vas-role-pill vas-role-pill-muted">
+                Widok operatora (wszystkie dane demo)
+              </span>
+            </div>
+            <section className="vas-section" aria-labelledby="admin-title">
+              <div className="vas-pagehead">
+                <div>
+                  <h1 id="admin-title" className="vas-h1">
+                    Admin Platformy
+                  </h1>
+                  <p className="vas-lead">
+                    Pełna widoczność: sprzedaż VAS, przychód platformy, prowizja partnera (
+                    {LENDER.name}), aktywność klientów i rozliczenia (demo jednego partnera).
+                  </p>
+                </div>
+              </div>
+
+              <div className="vas-kpi-grid">
+                <article className="vas-kpi vas-kpi-accent">
+                  <div className="vas-kpi-label">Całkowita sprzedaż VAS</div>
+                  <div className="vas-kpi-value">{formatMoney(totalVasRevenue)}</div>
+                  <div className="vas-kpi-foot">Przychód brutto z usług dodatkowych</div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Prowizja pożyczkodawcy</div>
+                  <div className="vas-kpi-value">{formatMoney(lenderCommissionTotal)}</div>
+                  <div className="vas-kpi-foot">
+                    {LENDER.commissionPercent}% dla {LENDER.name}
+                  </div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Przychód netto platformy</div>
+                  <div className="vas-kpi-value">{formatMoney(platformNetRevenue)}</div>
+                  <div className="vas-kpi-foot">Po odliczeniu prowizji partnera (model demo)</div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Klienci zalogowani (kiedykolwiek)</div>
+                  <div className="vas-kpi-value">{loggedInClientCount}</div>
+                  <div className="vas-kpi-foot">Z portalu klienta (symulacja)</div>
+                </article>
+              </div>
+
+              <div className="vas-kpi-grid vas-mt-md">
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Średnia wartość koszyka</div>
+                  <div className="vas-kpi-value">
+                    {purchases.length
+                      ? formatMoney(totalVasRevenue / purchases.length)
+                      : '—'}
+                  </div>
+                  <div className="vas-kpi-foot">Na transakcję</div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Punkty przyznane (VAS)</div>
+                  <div className="vas-kpi-value">
+                    {purchases.reduce((s, p) => s + p.pointsEarned, 0)} pkt
+                  </div>
+                  <div className="vas-kpi-foot">Nagrody lojalnościowe</div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Punkty wykorzystane (benefity)</div>
+                  <div className="vas-kpi-value">
+                    {benefitUses.reduce((s, b) => s + b.costPoints, 0)} pkt
+                  </div>
+                  <div className="vas-kpi-foot">Wykorzystanie benefitów</div>
+                </article>
+                <article className="vas-kpi">
+                  <div className="vas-kpi-label">Klienci z benefitem</div>
+                  <div className="vas-kpi-value">
+                    {new Set(benefitUses.map((b) => b.clientId)).size}
+                  </div>
+                  <div className="vas-kpi-foot">Unikalni użytkownicy</div>
+                </article>
+              </div>
+
+              <div className="vas-card vas-card-elevated vas-mt-lg">
+                <div className="vas-card-head">
+                  <h2 className="vas-h2">Udział produktów w przychodzie</h2>
+                  <span className="vas-badge vas-badge-green">SKU</span>
+                </div>
+                <div className="vas-admin-bars">
+                  {productStats.map((p) => {
+                    const max = Math.max(
+                      1,
+                      ...productStats.map((x) => x.revenue),
+                    )
+                    const w = Math.round((p.revenue / max) * 100)
+                    return (
+                      <div key={p.id} className="vas-bar-row">
+                        <div className="vas-bar-head">
+                          <span>
+                            {p.icon} {p.name}
+                          </span>
+                          <span className="vas-muted">
+                            {p.count} × · {formatMoney(p.revenue)}
+                          </span>
+                        </div>
+                        <div className="vas-bar-track">
+                          <div className="vas-bar-fill" style={{ width: `${w}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="vas-grid-2 vas-mt-lg">
+                <div className="vas-card">
+                  <div className="vas-card-head">
+                    <h2 className="vas-h2">Rejestr operacji (skrót)</h2>
+                  </div>
+                  {purchases.length === 0 ? (
+                    <p className="vas-muted">Brak danych operacyjnych.</p>
+                  ) : (
+                    <div className="vas-table-wrap">
+                      <table className="vas-table">
+                        <thead>
+                          <tr>
+                            <th>Data</th>
+                            <th>Klient</th>
+                            <th>Produkt</th>
+                            <th>Kwota</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {purchases.slice(0, 15).map((row) => {
+                            const cl = BASE_CLIENTS.find((c) => c.id === row.clientId)
+                            return (
+                              <tr key={row.id}>
+                                <td>{formatDate(row.at)}</td>
+                                <td>{cl?.name ?? '—'}</td>
+                                <td>{row.productName}</td>
+                                <td>{formatMoney(row.pricePln)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="vas-card vas-card-tint">
+                  <div className="vas-card-head">
+                    <h2 className="vas-h2">Model rozliczeń (demo)</h2>
+                  </div>
+                  <ul className="vas-checklist">
+                    <li>
+                      Sprzedaż VAS: <strong>{formatMoney(totalVasRevenue)}</strong>
+                    </li>
+                    <li>
+                      Prowizja {LENDER.name} ({LENDER.commissionPercent}%):{' '}
+                      <strong>{formatMoney(lenderCommissionTotal)}</strong>
+                    </li>
+                    <li>
+                      Pozostałość na platformę:{' '}
+                      <strong>{formatMoney(platformNetRevenue)}</strong>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
+      ) : null}
+
+      <footer className="vas-footer">
+        <span>VAS Loyalty Demo</span>
+        <span className="vas-footer-dot" aria-hidden>
+          ·
+        </span>
+        <span>Trzy oddzielne widoki: Portal Klienta · Panel Pożyczkodawcy · Admin Platformy</span>
+      </footer>
+
+      {toast ? (
+        <div className={`vas-toast vas-toast-${toast.type}`} role="status">
+          {toast.message}
+        </div>
+      ) : null}
+    </div>
+  )
+}
