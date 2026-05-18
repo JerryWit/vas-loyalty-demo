@@ -16,6 +16,9 @@ const BASE_CLIENTS = [
     loanNumber: 'SP-1001',
     loanAmount: 2500,
     basePoints: 120,
+    /** Dni do terminu spłaty (demo, liczone od dziś). */
+    repaymentDaysFromToday: 5,
+    nextInstallmentPln: 420,
   },
   {
     id: 'c2',
@@ -23,6 +26,8 @@ const BASE_CLIENTS = [
     loanNumber: 'SP-1002',
     loanAmount: 1800,
     basePoints: 60,
+    repaymentDaysFromToday: 12,
+    nextInstallmentPln: 310,
   },
   {
     id: 'c3',
@@ -30,8 +35,16 @@ const BASE_CLIENTS = [
     loanNumber: 'SP-1003',
     loanAmount: 3200,
     basePoints: 0,
+    repaymentDaysFromToday: 3,
+    nextInstallmentPln: 540,
   },
 ]
+
+const PROLONGATION_DAYS_BY_CATALOG = {
+  r1: 7,
+  r2: 14,
+  r3: 30,
+}
 
 const VAS_PRODUCTS = [
   {
@@ -223,11 +236,18 @@ function buildInitialState() {
       source: 'lender_api_confirm',
     }))
   }
+  const repaymentExtraDays =
+    persisted?.repaymentExtraDays &&
+    typeof persisted.repaymentExtraDays === 'object'
+      ? persisted.repaymentExtraDays
+      : {}
+
   return {
     pointsByClient,
     purchases: Array.isArray(persisted?.purchases) ? persisted.purchases : [],
     lenderRedemptions,
     clientLogins,
+    repaymentExtraDays,
   }
 }
 
@@ -248,6 +268,51 @@ function formatDate(iso) {
 
 function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function startOfDay(d) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function formatDateOnly(d) {
+  return new Intl.DateTimeFormat('pl-PL', { dateStyle: 'long' }).format(d)
+}
+
+function getRepaymentDate(client, extraDays = 0) {
+  const d = startOfDay(new Date())
+  d.setDate(d.getDate() + client.repaymentDaysFromToday + extraDays)
+  return d
+}
+
+function daysFromVisitToRepayment(client, visitAtIso, extraDays = 0) {
+  const visit = startOfDay(visitAtIso ? new Date(visitAtIso) : new Date())
+  const repay = startOfDay(getRepaymentDate(client, extraDays))
+  return Math.max(0, Math.ceil((repay - visit) / 86400000))
+}
+
+/** <7 dni od wizyty w portalu do spłaty → przedłużenia 14 i 30 dni; w przeciwnym razie 7 dni. */
+function getPortalRedemptionRows(client, visitAtIso, extraDays = 0) {
+  const daysLeft = daysFromVisitToRepayment(client, visitAtIso, extraDays)
+  const urgent = daysLeft < 7
+  const prolongationIds = urgent ? ['r2', 'r3'] : ['r1']
+  const alwaysIds = ['r4', 'r5']
+  const prolongIds = ['r1', 'r2', 'r3']
+
+  return LENDER_POINTS_CATALOG.map((item) => {
+    const isProlongation = prolongIds.includes(item.id)
+    const allowed = isProlongation
+      ? prolongationIds.includes(item.id)
+      : alwaysIds.includes(item.id)
+    let unavailableReason = null
+    if (!allowed && isProlongation) {
+      unavailableReason = urgent
+        ? 'Przy terminie poniżej 7 dni dostępne są wyłącznie przedłużenia o 14 i 30 dni.'
+        : 'Przy terminie 7 dni lub dłużej dostępne jest przedłużenie o 7 dni (opcje 14/30 po wejściu w okno pilne).'
+    }
+    return { ...item, allowed, unavailableReason, daysLeft, urgent }
+  })
 }
 
 function commissionOnPrice(pricePln) {
@@ -278,9 +343,17 @@ export default function App() {
   const [lenderApiDemoOptionId, setLenderApiDemoOptionId] = useState(
     () => LENDER_POINTS_CATALOG[0]?.id ?? '',
   )
+  const [repaymentExtraDays, setRepaymentExtraDays] = useState(
+    () => buildInitialState().repaymentExtraDays,
+  )
+  const [lenderPortalClientId, setLenderPortalClientId] = useState(null)
+  const [lenderPortalVisitAt, setLenderPortalVisitAt] = useState(null)
+  const [lenderPortalSelectedId, setLenderPortalSelectedId] = useState('')
+  const [lenderPortalLoanLogin, setLenderPortalLoanLogin] = useState('')
+  const [lenderPortalLoginError, setLenderPortalLoginError] = useState('')
 
   const persist = useCallback(
-    (nextPoints, nextPurchases, nextRedemptions, nextLogins) => {
+    (nextPoints, nextPurchases, nextRedemptions, nextLogins, nextRepaymentExtra) => {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
@@ -288,6 +361,7 @@ export default function App() {
           purchases: nextPurchases,
           lenderRedemptions: nextRedemptions,
           clientLogins: nextLogins,
+          repaymentExtraDays: nextRepaymentExtra,
         }),
       )
     },
@@ -295,8 +369,21 @@ export default function App() {
   )
 
   useEffect(() => {
-    persist(pointsByClient, purchases, lenderRedemptions, clientLogins)
-  }, [pointsByClient, purchases, lenderRedemptions, clientLogins, persist])
+    persist(
+      pointsByClient,
+      purchases,
+      lenderRedemptions,
+      clientLogins,
+      repaymentExtraDays,
+    )
+  }, [
+    pointsByClient,
+    purchases,
+    lenderRedemptions,
+    clientLogins,
+    repaymentExtraDays,
+    persist,
+  ])
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
@@ -311,6 +398,46 @@ export default function App() {
   const pointsSession = sessionClient
     ? pointsByClient[sessionClient.id] ?? 0
     : 0
+
+  const lenderPortalClient = useMemo(() => {
+    if (!lenderPortalClientId) return null
+    return BASE_CLIENTS.find((c) => c.id === lenderPortalClientId) ?? null
+  }, [lenderPortalClientId])
+
+  const lenderPortalExtra = lenderPortalClient
+    ? repaymentExtraDays[lenderPortalClient.id] ?? 0
+    : 0
+
+  const lenderPortalPoints = lenderPortalClient
+    ? pointsByClient[lenderPortalClient.id] ?? lenderPortalClient.basePoints
+    : 0
+
+  const portalRedemptionRows = useMemo(() => {
+    if (!lenderPortalClient || !lenderPortalVisitAt) return []
+    return getPortalRedemptionRows(
+      lenderPortalClient,
+      lenderPortalVisitAt,
+      lenderPortalExtra,
+    )
+  }, [lenderPortalClient, lenderPortalVisitAt, lenderPortalExtra])
+
+  const lenderPortalDaysLeft = lenderPortalClient
+    ? daysFromVisitToRepayment(
+        lenderPortalClient,
+        lenderPortalVisitAt ?? new Date().toISOString(),
+        lenderPortalExtra,
+      )
+    : 0
+
+  const lenderPortalRepaymentDate = lenderPortalClient
+    ? getRepaymentDate(lenderPortalClient, lenderPortalExtra)
+    : null
+
+  const clientCalculatorRows = useMemo(() => {
+    if (!sessionClient) return []
+    const extra = repaymentExtraDays[sessionClient.id] ?? 0
+    return getPortalRedemptionRows(sessionClient, new Date().toISOString(), extra)
+  }, [sessionClient, repaymentExtraDays])
 
   const clientPurchases = useMemo(() => {
     if (!clientSessionId) return []
@@ -534,21 +661,60 @@ export default function App() {
   }
 
   const openLenderPortal = () => {
-    window.open(LENDER.portalUrl, '_blank', 'noopener,noreferrer')
+    setLenderPortalVisitAt(new Date().toISOString())
+    setLenderPortalSelectedId('')
+    setLenderPortalLoginError('')
+    if (clientSessionId) setLenderPortalClientId(clientSessionId)
+    setClientScreen('lender-portal')
+  }
+
+  const leaveLenderPortal = () => {
+    setClientScreen('home')
+    setLenderPortalSelectedId('')
+    setLenderPortalLoginError('')
+  }
+
+  const handleLenderPortalLogin = (e) => {
+    e.preventDefault()
+    const norm = lenderPortalLoanLogin.trim().toUpperCase()
+    const found = BASE_CLIENTS.find(
+      (c) => c.loanNumber.toUpperCase() === norm,
+    )
+    if (!found) {
+      setLenderPortalLoginError('Nieprawidłowy numer pożyczki.')
+      return
+    }
+    setLenderPortalLoginError('')
+    setLenderPortalClientId(found.id)
+    setLenderPortalVisitAt(new Date().toISOString())
+    setLenderPortalSelectedId('')
+    setLenderPortalLoanLogin('')
   }
 
   /** Demo: symulacja potwierdzenia wykorzystania punktów przez API pożyczkodawcy. */
-  const confirmRedemptionViaLenderApi = (clientId, catalogId) => {
+  const confirmRedemptionViaLenderApi = (clientId, catalogId, options = {}) => {
+    const { silent = false } = options
     const option = LENDER_POINTS_CATALOG.find((o) => o.id === catalogId)
     const client = BASE_CLIENTS.find((c) => c.id === clientId)
-    if (!option || !client) return
+    if (!option || !client) return false
+    const extra = repaymentExtraDays[clientId] ?? 0
+    const visitAt = lenderPortalVisitAt ?? new Date().toISOString()
+    const row = getPortalRedemptionRows(client, visitAt, extra).find(
+      (r) => r.id === catalogId,
+    )
+    if (row && !row.allowed) {
+      if (!silent) showToast(row.unavailableReason ?? 'Opcja niedostępna.', 'warn')
+      return false
+    }
     const bal = pointsByClient[clientId] ?? client.basePoints
     if (bal < option.pointsCost) {
-      showToast(
-        `Niewystarczające saldo (${bal} pkt) dla „${option.label}”.`,
-        'warn',
-      )
-      return
+      if (!silent) {
+        showToast(
+          `Niewystarczające saldo (${bal} pkt) dla „${option.label}”.`,
+          'warn',
+        )
+      }
+      return false
     }
     setLenderRedemptions((prev) => [
       {
@@ -566,9 +732,35 @@ export default function App() {
       ...prev,
       [clientId]: (prev[clientId] ?? client.basePoints) - option.pointsCost,
     }))
-    showToast(
-      `API: zapisano wykorzystanie ${option.pointsCost} pkt — ${client.name}.`,
+    const prolongDays = PROLONGATION_DAYS_BY_CATALOG[catalogId] ?? 0
+    if (prolongDays > 0) {
+      setRepaymentExtraDays((prev) => ({
+        ...prev,
+        [clientId]: (prev[clientId] ?? 0) + prolongDays,
+      }))
+    }
+    if (!silent) {
+      showToast(
+        `API: zapisano wykorzystanie ${option.pointsCost} pkt — ${client.name}.`,
+      )
+    }
+    return true
+  }
+
+  const submitLenderPortalRedemption = () => {
+    if (!lenderPortalClient || !lenderPortalSelectedId) {
+      showToast('Wybierz opcję wykorzystania punktów.', 'warn')
+      return
+    }
+    const ok = confirmRedemptionViaLenderApi(
+      lenderPortalClient.id,
+      lenderPortalSelectedId,
+      { silent: true },
     )
+    if (ok) {
+      setLenderPortalSelectedId('')
+      showToast('Wykorzystano punkty. Zmiana warunków zapisana w umowie (demo).')
+    }
   }
 
   const resetDemo = () => {
@@ -579,8 +771,12 @@ export default function App() {
     setPointsByClient(next)
     setPurchases([])
     setLenderRedemptions([])
+    setRepaymentExtraDays({})
     setClientLogins({})
     setClientSessionId(null)
+    setLenderPortalClientId(null)
+    setLenderPortalVisitAt(null)
+    setLenderPortalSelectedId('')
     setClientScreen('home')
     setLoanLogin('')
     setLoginError('')
@@ -606,31 +802,40 @@ export default function App() {
           <div>
             <div className="vas-brand-title">VAS Loyalty</div>
             <div className="vas-brand-sub">
-              {role === 'client'
-                ? clientSessionId
-                  ? 'Portal Klienta · tylko Twoje konto'
-                  : 'Strona główna · wybierz ścieżkę'
-                : `${roleMeta?.label ?? ''} · demo (osobny widok)`}
+              {role === 'client' && clientScreen === 'lender-portal'
+                ? `Symulacja portalu · ${LENDER.name}`
+                : role === 'client'
+                  ? clientSessionId
+                    ? 'Portal Klienta · tylko Twoje konto'
+                    : 'Strona główna · wybierz ścieżkę'
+                  : `${roleMeta?.label ?? ''} · demo (osobny widok)`}
             </div>
           </div>
         </div>
-        <nav className="vas-nav" aria-label="Wybór widoku demo — osobne role">
-          {ROLE_NAV.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`vas-nav-btn ${role === item.id ? 'is-active' : ''}`}
-              onClick={() => switchRole(item.id)}
-              title={item.desc}
-            >
-              <span className="vas-nav-ico">{item.icon}</span>
-              <span className="vas-nav-label-full">{item.label}</span>
-              <span className="vas-nav-label-short">{item.short}</span>
-            </button>
-          ))}
-        </nav>
+        {clientScreen !== 'lender-portal' ? (
+          <nav className="vas-nav" aria-label="Wybór widoku demo — osobne role">
+            {ROLE_NAV.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`vas-nav-btn ${role === item.id ? 'is-active' : ''}`}
+                onClick={() => switchRole(item.id)}
+                title={item.desc}
+              >
+                <span className="vas-nav-ico">{item.icon}</span>
+                <span className="vas-nav-label-full">{item.label}</span>
+                <span className="vas-nav-label-short">{item.short}</span>
+              </button>
+            ))}
+          </nav>
+        ) : null}
         <div className="vas-topbar-actions">
-          {role === 'client' && clientSessionId ? (
+          {role === 'client' && clientScreen === 'lender-portal' ? (
+            <button type="button" className="vas-btn vas-btn-ghost" onClick={leaveLenderPortal}>
+              ← Program VAS
+            </button>
+          ) : null}
+          {role === 'client' && clientSessionId && clientScreen !== 'lender-portal' ? (
             <button type="button" className="vas-btn vas-btn-ghost" onClick={logoutClient}>
               Wyloguj
             </button>
@@ -640,6 +845,190 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {role === 'client' && clientScreen === 'lender-portal' ? (
+        <main className="vas-lender-portal-wrap">
+          <div className="vas-lender-portal-shell">
+            <header className="vas-lender-portal-head">
+              <div className="vas-lender-portal-logo">{LENDER.name}</div>
+              <p className="vas-lender-portal-tagline">Portal klienta · obsługa pożyczki</p>
+            </header>
+
+            {!lenderPortalClient ? (
+              <section className="vas-lender-portal-card">
+                <h1 className="vas-h2">Zaloguj się do pożyczki</h1>
+                <p className="vas-muted vas-mb-md">
+                  Aby wykorzystać punkty lojalnościowe, potwierdź numer pożyczki. Saldo punktów
+                  pobierzemy z platformy VAS (symulacja API).
+                </p>
+                <form className="vas-login-form" onSubmit={handleLenderPortalLogin}>
+                  <label className="vas-field">
+                    <span className="vas-field-label">Numer pożyczki</span>
+                    <input
+                      className="vas-input"
+                      value={lenderPortalLoanLogin}
+                      onChange={(e) => setLenderPortalLoanLogin(e.target.value)}
+                      placeholder="np. SP-1001"
+                      autoComplete="off"
+                    />
+                  </label>
+                  {lenderPortalLoginError ? (
+                    <p className="vas-field-error" role="alert">
+                      {lenderPortalLoginError}
+                    </p>
+                  ) : null}
+                  <button type="submit" className="vas-btn vas-btn-primary vas-btn-block">
+                    Wejdź do portalu
+                  </button>
+                </form>
+                <p className="vas-muted vas-text-sm vas-mt-md">
+                  Demo: SP-1001 (termin za 5 dni), SP-1002 (za 12 dni), SP-1003 (za 3 dni).
+                </p>
+              </section>
+            ) : (
+              <>
+                <section
+                  className={`vas-lender-portal-card vas-lender-loan-status ${
+                    lenderPortalDaysLeft < 7 ? 'is-urgent' : ''
+                  }`}
+                >
+                  <div className="vas-lender-status-eyebrow">Status pożyczki</div>
+                  <h1 className="vas-lender-status-title">Pożyczka wymaga spłaty</h1>
+                  <p className="vas-lender-status-lead">
+                    {lenderPortalClient.name} ·{' '}
+                    <span className="vas-mono-strong">{lenderPortalClient.loanNumber}</span>
+                  </p>
+                  <div className="vas-lender-status-grid">
+                    <div>
+                      <span className="vas-muted vas-text-sm">Termin spłaty</span>
+                      <div className="vas-lender-status-value">
+                        {lenderPortalRepaymentDate
+                          ? formatDateOnly(lenderPortalRepaymentDate)
+                          : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="vas-muted vas-text-sm">Dni do spłaty (od dziś)</span>
+                      <div
+                        className={`vas-lender-status-value ${
+                          lenderPortalDaysLeft < 7 ? 'vas-lender-days-urgent' : ''
+                        }`}
+                      >
+                        {lenderPortalDaysLeft} dni
+                      </div>
+                    </div>
+                    <div>
+                      <span className="vas-muted vas-text-sm">Kwota najbliższej raty</span>
+                      <div className="vas-lender-status-value">
+                        {formatMoney(lenderPortalClient.nextInstallmentPln)}
+                      </div>
+                    </div>
+                  </div>
+                  {lenderPortalDaysLeft < 7 ? (
+                    <div className="vas-lender-urgent-note" role="status">
+                      Do terminu spłaty zostało mniej niż 7 dni — możesz skorzystać z przedłużenia
+                      o <strong>14 lub 30 dni</strong> za punkty (oraz z innych benefitów
+                      niefinansujących terminu).
+                    </div>
+                  ) : (
+                    <div className="vas-lender-calm-note" role="status">
+                      Do terminu spłaty zostało {lenderPortalDaysLeft} dni — dostępne jest
+                      przedłużenie raty o <strong>7 dni</strong> za punkty.
+                    </div>
+                  )}
+                </section>
+
+                <section className="vas-lender-portal-card">
+                  <div className="vas-lender-api-row">
+                    <span className="vas-lender-api-label">Zapytanie API → platforma VAS</span>
+                    <span className="vas-lender-api-ok">Saldo potwierdzone</span>
+                  </div>
+                  <p className="vas-lender-points-balance">
+                    Masz do dyspozycji{' '}
+                    <strong>{lenderPortalPoints} punktów</strong> lojalnościowych.
+                  </p>
+                  <p className="vas-muted vas-text-sm">
+                    Wybierz, na co chcesz je przeznaczyć. Po potwierdzeniu wyślemy zapis
+                    wykorzystania do platformy (demo).
+                  </p>
+                </section>
+
+                <section className="vas-lender-portal-card">
+                  <h2 className="vas-h3 vas-mb-md">Wykorzystaj punkty</h2>
+                  <ul className="vas-lender-option-list">
+                    {portalRedemptionRows.map((row) => {
+                      const affordable = lenderPortalPoints >= row.pointsCost
+                      const selectable = row.allowed && affordable
+                      return (
+                        <li
+                          key={row.id}
+                          className={`vas-lender-option ${
+                            !row.allowed ? 'is-disabled' : ''
+                          } ${lenderPortalSelectedId === row.id ? 'is-selected' : ''}`}
+                        >
+                          <label className="vas-lender-option-label">
+                            <input
+                              type="radio"
+                              name="lender-redemption"
+                              value={row.id}
+                              disabled={!selectable}
+                              checked={lenderPortalSelectedId === row.id}
+                              onChange={() => setLenderPortalSelectedId(row.id)}
+                            />
+                            <span className="vas-lender-option-body">
+                              <span className="vas-lender-option-title">{row.label}</span>
+                              <span className="vas-cost-pill">{row.pointsCost} pkt</span>
+                            </span>
+                          </label>
+                          {!row.allowed ? (
+                            <p className="vas-lender-option-hint">{row.unavailableReason}</p>
+                          ) : !affordable ? (
+                            <p className="vas-lender-option-hint">Za mało punktów na koncie.</p>
+                          ) : null}
+                        </li>
+                      )
+                    })}
+                  </ul>
+
+                  {lenderPortalSelectedId ? (
+                    <div className="vas-lender-allocation">
+                      {(() => {
+                        const sel = LENDER_POINTS_CATALOG.find(
+                          (o) => o.id === lenderPortalSelectedId,
+                        )
+                        if (!sel) return null
+                        return (
+                          <>
+                            Przydzielasz <strong>{sel.pointsCost} pkt</strong> z{' '}
+                            <strong>{lenderPortalPoints} pkt</strong> na:{' '}
+                            <strong>{sel.label}</strong>
+                            {PROLONGATION_DAYS_BY_CATALOG[sel.id] ? (
+                              <span className="vas-muted">
+                                {' '}
+                                — nowy termin spłaty przesunie się o{' '}
+                                {PROLONGATION_DAYS_BY_CATALOG[sel.id]} dni (demo).
+                              </span>
+                            ) : null}
+                          </>
+                        )
+                      })()}
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="vas-btn vas-btn-primary vas-btn-block vas-mt-md"
+                    disabled={!lenderPortalSelectedId}
+                    onClick={submitLenderPortalRedemption}
+                  >
+                    Potwierdź wykorzystanie punktów
+                  </button>
+                </section>
+              </>
+            )}
+          </div>
+        </main>
+      ) : null}
 
       {role === 'client' && !clientSessionId && clientScreen === 'home' ? (
         <main className="vas-home-main">
@@ -801,7 +1190,7 @@ export default function App() {
         </main>
       ) : null}
 
-      {role === 'client' && clientSessionId ? (
+      {role === 'client' && clientSessionId && clientScreen !== 'lender-portal' ? (
         <div className="vas-client-layout">
           <main className="vas-client-main">
             <section className="vas-section vas-client-hero-card" aria-label="Podsumowanie konta">
@@ -923,7 +1312,7 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {LENDER_POINTS_CATALOG.map((row) => {
+                      {clientCalculatorRows.map((row) => {
                         const affordable = pointsSession >= row.pointsCost
                         return (
                           <tr key={row.id}>
@@ -932,7 +1321,9 @@ export default function App() {
                               <span className="vas-cost-pill">{row.pointsCost} pkt</span>
                             </td>
                             <td>
-                              {affordable ? (
+                              {!row.allowed ? (
+                                <span className="vas-muted vas-text-sm">niedostępne w portalu</span>
+                              ) : affordable ? (
                                 <span className="vas-tag-pos">wystarczy</span>
                               ) : (
                                 <span className="vas-muted">za mało punktów</span>
