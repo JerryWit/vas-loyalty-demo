@@ -68,27 +68,27 @@ const LENDER_POINTS_CATALOG = [
   {
     id: 'r1',
     label: 'Przedłużenie raty o 7 dni',
-    pointsCost: 700,
+    pointsCost: 70,
   },
   {
     id: 'r2',
     label: 'Przedłużenie raty o 14 dni',
-    pointsCost: 1200,
+    pointsCost: 120,
   },
   {
     id: 'r3',
     label: 'Przedłużenie raty o 30 dni',
-    pointsCost: 1800,
+    pointsCost: 180,
   },
   {
     id: 'r4',
     label: 'Obniżenie kosztu pożyczki',
-    pointsCost: 1000,
+    pointsCost: 100,
   },
   {
     id: 'r5',
     label: 'Spłata częściowa 500 zł',
-    pointsCost: 950,
+    pointsCost: 95,
   },
 ]
 
