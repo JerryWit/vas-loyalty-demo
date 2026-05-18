@@ -36,25 +36,28 @@ const VAS_PRODUCTS = [
   {
     id: 'p1',
     name: 'Telemedycyna',
-    description: 'Konsultacje online 24/7, e-recepty, e-zwolnienia.',
-    pricePln: 29,
-    pointsReward: 30,
+    packageLabel: 'Pakiet 1 miesiąc',
+    description: '20 telekonsultacji, badania krwi i obrazowe.',
+    pricePln: 850,
+    pointsReward: 85,
     icon: '🩺',
   },
   {
     id: 'p2',
     name: 'Assistance Domowy',
+    packageLabel: 'Pakiet 6 miesięcy',
     description: 'Hydraulik, elektryk, ślusarz — interwencja w domu.',
-    pricePln: 39,
-    pointsReward: 45,
+    pricePln: 350,
+    pointsReward: 35,
     icon: '🏠',
   },
   {
     id: 'p3',
     name: 'Ochrona Pupil',
+    packageLabel: 'Pakiet półroczny',
     description: 'Ubezpieczenie weterynaryjne i assistance dla zwierząt.',
-    pricePln: 49,
-    pointsReward: 60,
+    pricePln: 650,
+    pointsReward: 65,
     icon: '🐾',
   },
 ]
@@ -62,16 +65,23 @@ const VAS_PRODUCTS = [
 const BENEFITS = [
   {
     id: 'b1',
-    title: 'Przesunięcie terminu spłaty',
-    description: 'Jednorazowe przesunięcie raty o 14 dni (demo).',
-    costPoints: 100,
+    title: 'Przesunięcie spłaty pożyczki o 14 dni',
+    description: 'Jednorazowe przesunięcie terminu spłaty o 14 dni (demo).',
+    costPoints: 35,
     icon: '📅',
   },
   {
     id: 'b2',
-    title: 'Spłata 50 zł z konta punktów',
-    description: 'Kwota zostanie uwzględniona przy najbliższej racie (demo).',
-    costPoints: 150,
+    title: 'Przesunięcie spłaty pożyczki o 30 dni',
+    description: 'Jednorazowe przesunięcie terminu spłaty o 30 dni (demo).',
+    costPoints: 65,
+    icon: '📅',
+  },
+  {
+    id: 'b3',
+    title: 'Spłata 500 zł z konta punktów',
+    description: 'Kwota 500 zł zostanie uwzględniona przy najbliższej racie (demo).',
+    costPoints: 50,
     icon: '💳',
   },
 ]
@@ -88,8 +98,9 @@ const HOME_OFFER_HIGHLIGHTS = [
 ]
 
 const LOYALTY_HOME_PERKS = [
-  { icon: '📅', text: 'Przesunięcie spłaty pożyczki o 7–30 dni' },
-  { icon: '💳', text: 'Spłata części pożyczki' },
+  { icon: '📅', text: 'Przesunięcie spłaty o 14 dni (35 pkt)' },
+  { icon: '📅', text: 'Przesunięcie spłaty o 30 dni (65 pkt)' },
+  { icon: '💳', text: 'Spłata 500 zł z konta punktów (50 pkt)' },
   { icon: '⚡', text: 'Usługa przyspieszenia przyznania pożyczki' },
   { icon: '🎁', text: 'Rabaty i bonusy za aktywność w programie' },
 ]
@@ -743,7 +754,9 @@ export default function App() {
                   <span>
                     {p.icon} {p.name}
                   </span>
-                  <span className="vas-muted">od {formatMoney(p.pricePln)}/mies.</span>
+                  <span className="vas-muted">
+                    {formatMoney(p.pricePln)} · {p.packageLabel}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -824,7 +837,7 @@ export default function App() {
                       <div className="vas-product-price-row">
                         <div>
                           <div className="vas-price">{formatMoney(p.pricePln)}</div>
-                          <div className="vas-muted vas-text-sm">/ miesiąc (demo)</div>
+                          <div className="vas-muted vas-text-sm">{p.packageLabel}</div>
                         </div>
                         <div className="vas-points-badge">+{p.pointsReward} pkt</div>
                       </div>
