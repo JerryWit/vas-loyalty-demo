@@ -1345,6 +1345,56 @@
   font-variant-numeric: tabular-nums;
 }
 
+.vas-tag-neg {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-variant-numeric: tabular-nums;
+}
+
+.vas-points-calculator-lead {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--vas-ink);
+}
+
+.vas-info-callout {
+  padding: 14px 16px;
+  border-radius: var(--vas-radius-md);
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a5f;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.vas-info-callout p {
+  margin: 0;
+}
+
+.vas-points-catalog-table tbody tr:hover {
+  background: var(--vas-snow);
+}
+
+.vas-lender-api-demo {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 14px;
+  align-items: end;
+}
+
+@media (max-width: 900px) {
+  .vas-lender-api-demo {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Product mini list (dashboard) */
 .vas-product-mini {
   list-style: none;

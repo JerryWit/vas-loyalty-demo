@@ -6,6 +6,7 @@ const STORAGE_KEY = 'vas-smartpozyczka-demo-v1'
 const LENDER = {
   name: 'SmartPożyczka',
   commissionPercent: 25,
+  portalUrl: 'https://www.smartpozyczka.pl/demo-portal',
 }
 
 const BASE_CLIENTS = [
@@ -62,27 +63,32 @@ const VAS_PRODUCTS = [
   },
 ]
 
-const BENEFITS = [
+/** Tabela informacyjna — przelicznik pożyczkodawcy (tylko odczyt, bez akcji po stronie platformy). */
+const LENDER_POINTS_CATALOG = [
   {
-    id: 'b1',
-    title: 'Przesunięcie spłaty pożyczki o 14 dni',
-    description: 'Jednorazowe przesunięcie terminu spłaty o 14 dni (demo).',
-    costPoints: 35,
-    icon: '📅',
+    id: 'r1',
+    label: 'Przedłużenie raty o 7 dni',
+    pointsCost: 700,
   },
   {
-    id: 'b2',
-    title: 'Przesunięcie spłaty pożyczki o 30 dni',
-    description: 'Jednorazowe przesunięcie terminu spłaty o 30 dni (demo).',
-    costPoints: 65,
-    icon: '📅',
+    id: 'r2',
+    label: 'Przedłużenie raty o 14 dni',
+    pointsCost: 1200,
   },
   {
-    id: 'b3',
-    title: 'Spłata 500 zł z konta punktów',
-    description: 'Kwota 500 zł zostanie uwzględniona przy najbliższej racie (demo).',
-    costPoints: 50,
-    icon: '💳',
+    id: 'r3',
+    label: 'Przedłużenie raty o 30 dni',
+    pointsCost: 1800,
+  },
+  {
+    id: 'r4',
+    label: 'Obniżenie kosztu pożyczki',
+    pointsCost: 1000,
+  },
+  {
+    id: 'r5',
+    label: 'Spłata częściowa 500 zł',
+    pointsCost: 950,
   },
 ]
 
@@ -98,11 +104,10 @@ const HOME_OFFER_HIGHLIGHTS = [
 ]
 
 const LOYALTY_HOME_PERKS = [
-  { icon: '📅', text: 'Przesunięcie spłaty o 14 dni (35 pkt)' },
-  { icon: '📅', text: 'Przesunięcie spłaty o 30 dni (65 pkt)' },
-  { icon: '💳', text: 'Spłata 500 zł z konta punktów (50 pkt)' },
-  { icon: '⚡', text: 'Usługa przyspieszenia przyznania pożyczki' },
-  { icon: '🎁', text: 'Rabaty i bonusy za aktywność w programie' },
+  { icon: '📊', text: 'Kalkulator: na co stać Twoje punkty (informacyjnie)' },
+  { icon: '🏦', text: 'Wykorzystanie punktów wyłącznie w portalu pożyczkodawcy' },
+  { icon: '🔒', text: 'Platforma nie zmienia warunków umowy — tylko ewidencja' },
+  { icon: '🎁', text: 'Punkty za zakupy VAS naliczane automatycznie' },
 ]
 
 const OFFER_CATEGORIES = [
@@ -204,12 +209,24 @@ function buildInitialState() {
       clientLogins[c.id] = { lastAt: e.lastAt, count }
     }
   })
+  let lenderRedemptions = Array.isArray(persisted?.lenderRedemptions)
+    ? persisted.lenderRedemptions
+    : []
+  if (lenderRedemptions.length === 0 && Array.isArray(persisted?.benefitUses)) {
+    lenderRedemptions = persisted.benefitUses.map((b) => ({
+      id: b.id ?? uid(),
+      clientId: b.clientId,
+      points: b.costPoints ?? 0,
+      lenderName: LENDER.name,
+      optionLabel: b.title ?? 'Wykorzystanie punktów',
+      at: b.at ?? new Date().toISOString(),
+      source: 'lender_api_confirm',
+    }))
+  }
   return {
     pointsByClient,
     purchases: Array.isArray(persisted?.purchases) ? persisted.purchases : [],
-    benefitUses: Array.isArray(persisted?.benefitUses)
-      ? persisted.benefitUses
-      : [],
+    lenderRedemptions,
     clientLogins,
   }
 }
@@ -249,21 +266,27 @@ export default function App() {
     buildInitialState().pointsByClient,
   )
   const [purchases, setPurchases] = useState(() => buildInitialState().purchases)
-  const [benefitUses, setBenefitUses] = useState(
-    () => buildInitialState().benefitUses,
+  const [lenderRedemptions, setLenderRedemptions] = useState(
+    () => buildInitialState().lenderRedemptions,
   )
   const [clientLogins, setClientLogins] = useState(
     () => buildInitialState().clientLogins,
   )
+  const [lenderApiDemoClientId, setLenderApiDemoClientId] = useState(
+    () => BASE_CLIENTS[0]?.id ?? '',
+  )
+  const [lenderApiDemoOptionId, setLenderApiDemoOptionId] = useState(
+    () => LENDER_POINTS_CATALOG[0]?.id ?? '',
+  )
 
   const persist = useCallback(
-    (nextPoints, nextPurchases, nextBenefitUses, nextLogins) => {
+    (nextPoints, nextPurchases, nextRedemptions, nextLogins) => {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           pointsByClient: nextPoints,
           purchases: nextPurchases,
-          benefitUses: nextBenefitUses,
+          lenderRedemptions: nextRedemptions,
           clientLogins: nextLogins,
         }),
       )
@@ -272,8 +295,8 @@ export default function App() {
   )
 
   useEffect(() => {
-    persist(pointsByClient, purchases, benefitUses, clientLogins)
-  }, [pointsByClient, purchases, benefitUses, clientLogins, persist])
+    persist(pointsByClient, purchases, lenderRedemptions, clientLogins)
+  }, [pointsByClient, purchases, lenderRedemptions, clientLogins, persist])
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
@@ -327,7 +350,7 @@ export default function App() {
 
   const clientActivityTimeline = useMemo(() => {
     if (!clientSessionId) return []
-    const buys = purchases
+    return purchases
       .filter((p) => p.clientId === clientSessionId)
       .map((p) => ({
         kind: 'purchase',
@@ -335,16 +358,15 @@ export default function App() {
         label: `Zakup: ${p.productName}`,
         detail: `${formatMoney(p.pricePln)} · +${p.pointsEarned} pkt`,
       }))
-    const bus = benefitUses
-      .filter((b) => b.clientId === clientSessionId)
-      .map((b) => ({
-        kind: 'benefit',
-        at: b.at,
-        label: b.title,
-        detail: `−${b.costPoints} pkt`,
-      }))
-    return [...buys, ...bus].sort((a, b) => new Date(b.at) - new Date(a.at))
-  }, [purchases, benefitUses, clientSessionId])
+      .sort((a, b) => new Date(b.at) - new Date(a.at))
+  }, [purchases, clientSessionId])
+
+  const clientRedemptionHistory = useMemo(() => {
+    if (!clientSessionId) return []
+    return lenderRedemptions
+      .filter((r) => r.clientId === clientSessionId)
+      .sort((a, b) => new Date(b.at) - new Date(a.at))
+  }, [lenderRedemptions, clientSessionId])
 
   const totalVasRevenue = useMemo(
     () => purchases.reduce((s, p) => s + p.pricePln, 0),
@@ -386,8 +408,8 @@ export default function App() {
   }, [pointsByClient])
 
   const totalPointsRedeemed = useMemo(
-    () => benefitUses.reduce((s, b) => s + b.costPoints, 0),
-    [benefitUses],
+    () => lenderRedemptions.reduce((s, r) => s + r.points, 0),
+    [lenderRedemptions],
   )
 
   const lenderPortalRows = useMemo(() => {
@@ -399,10 +421,12 @@ export default function App() {
         0,
       )
       const pointsAvailable = pointsByClient[c.id] ?? c.basePoints
-      const benefitsForClient = benefitUses.filter((b) => b.clientId === c.id)
-      const benefitCount = benefitsForClient.length
-      const pointsSpentOnBenefits = benefitsForClient.reduce(
-        (s, b) => s + b.costPoints,
+      const redemptionsForClient = lenderRedemptions.filter(
+        (r) => r.clientId === c.id,
+      )
+      const redemptionCount = redemptionsForClient.length
+      const pointsSpentOnRedemptions = redemptionsForClient.reduce(
+        (s, r) => s + r.points,
         0,
       )
       const nameCount = {}
@@ -424,8 +448,8 @@ export default function App() {
         pointsAvailable,
         purchaseCount: clientPurch.length,
         vasSummary,
-        benefitCount,
-        pointsSpentOnBenefits,
+        redemptionCount,
+        pointsSpentOnRedemptions,
         lastLoginAt: login?.lastAt ?? null,
         loginCount: login?.count ?? 0,
         sessionActiveHere,
@@ -434,7 +458,7 @@ export default function App() {
   }, [
     purchases,
     pointsByClient,
-    benefitUses,
+    lenderRedemptions,
     clientLogins,
     clientSessionId,
   ])
@@ -509,29 +533,42 @@ export default function App() {
     showToast(`Dodano ${product.name}. +${product.pointsReward} pkt.`)
   }
 
-  const redeemBenefit = (benefit) => {
-    if (!sessionClient) return
-    const bal = pointsByClient[sessionClient.id] ?? 0
-    if (bal < benefit.costPoints) {
-      showToast('Za mało punktów na ten benefit.', 'warn')
+  const openLenderPortal = () => {
+    window.open(LENDER.portalUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  /** Demo: symulacja potwierdzenia wykorzystania punktów przez API pożyczkodawcy. */
+  const confirmRedemptionViaLenderApi = (clientId, catalogId) => {
+    const option = LENDER_POINTS_CATALOG.find((o) => o.id === catalogId)
+    const client = BASE_CLIENTS.find((c) => c.id === clientId)
+    if (!option || !client) return
+    const bal = pointsByClient[clientId] ?? client.basePoints
+    if (bal < option.pointsCost) {
+      showToast(
+        `Niewystarczające saldo (${bal} pkt) dla „${option.label}”.`,
+        'warn',
+      )
       return
     }
-    setBenefitUses((prev) => [
+    setLenderRedemptions((prev) => [
       {
         id: uid(),
-        clientId: sessionClient.id,
-        benefitId: benefit.id,
-        title: benefit.title,
-        costPoints: benefit.costPoints,
+        clientId,
+        points: option.pointsCost,
+        lenderName: LENDER.name,
+        optionLabel: option.label,
         at: new Date().toISOString(),
+        source: 'lender_api_confirm',
       },
       ...prev,
     ])
     setPointsByClient((prev) => ({
       ...prev,
-      [sessionClient.id]: (prev[sessionClient.id] ?? 0) - benefit.costPoints,
+      [clientId]: (prev[clientId] ?? client.basePoints) - option.pointsCost,
     }))
-    showToast(`Wykorzystano benefit: ${benefit.title}`)
+    showToast(
+      `API: zapisano wykorzystanie ${option.pointsCost} pkt — ${client.name}.`,
+    )
   }
 
   const resetDemo = () => {
@@ -541,7 +578,7 @@ export default function App() {
     })
     setPointsByClient(next)
     setPurchases([])
-    setBenefitUses([])
+    setLenderRedemptions([])
     setClientLogins({})
     setClientSessionId(null)
     setClientScreen('home')
@@ -855,40 +892,114 @@ export default function App() {
             </div>
 
             <div className="vas-client-grid-2 vas-mt-lg">
-              <section className="vas-card vas-card-elevated" aria-labelledby="benefits-title">
+              <section
+                className="vas-card vas-card-elevated"
+                aria-labelledby="points-calculator-title"
+              >
                 <div className="vas-card-head">
-                  <h2 id="benefits-title" className="vas-h2">
-                    Benefity za punkty
+                  <h2 id="points-calculator-title" className="vas-h2">
+                    Kalkulator wartości punktów
                   </h2>
-                  <span className="vas-badge vas-badge-navy">Wykorzystaj</span>
+                  <span className="vas-badge vas-badge-navy">Tylko informacja</span>
                 </div>
-                <div className="vas-benefit-list">
-                  {BENEFITS.map((b) => {
-                    const ok = pointsSession >= b.costPoints
-                    return (
-                      <div key={b.id} className="vas-benefit-card">
-                        <div className="vas-benefit-ico">{b.icon}</div>
-                        <div className="vas-benefit-body">
-                          <div className="vas-h3 vas-mb-z">{b.title}</div>
-                          <p className="vas-muted vas-text-sm vas-mb-sm">{b.description}</p>
-                          <div className="vas-benefit-foot">
-                            <span className="vas-cost-pill">{b.costPoints} pkt</span>
-                            <button
-                              type="button"
-                              className="vas-btn vas-btn-primary vas-btn-sm"
-                              disabled={!ok}
-                              onClick={() => redeemBenefit(b)}
-                            >
-                              Wykorzystaj
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+                <p className="vas-points-calculator-lead">
+                  Masz <strong>{pointsSession}</strong> punktów. Przy przeliczniku pożyczkodawcy{' '}
+                  <strong>{LENDER.name}</strong>:
+                </p>
+                <div className="vas-info-callout" role="note">
+                  <p>
+                    Aby wykorzystać punkty, zaloguj się w portalu swojego pożyczkodawcy. Twoje
+                    saldo punktów zostanie automatycznie potwierdzone, gdy pożyczkodawca zapyta o
+                    nie przez API.
+                  </p>
                 </div>
+                <div className="vas-table-wrap vas-mt-md">
+                  <table className="vas-table vas-table-compact vas-points-catalog-table">
+                    <thead>
+                      <tr>
+                        <th>Opcja (portal pożyczkodawcy)</th>
+                        <th>Koszt punktów</th>
+                        <th>Na Twoje saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {LENDER_POINTS_CATALOG.map((row) => {
+                        const affordable = pointsSession >= row.pointsCost
+                        return (
+                          <tr key={row.id}>
+                            <td>{row.label}</td>
+                            <td>
+                              <span className="vas-cost-pill">{row.pointsCost} pkt</span>
+                            </td>
+                            <td>
+                              {affordable ? (
+                                <span className="vas-tag-pos">wystarczy</span>
+                              ) : (
+                                <span className="vas-muted">za mało punktów</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="vas-muted vas-text-sm vas-mt-sm">
+                  Tabela ma charakter wyłącznie informacyjny — platforma nie inicjuje zmian warunków
+                  pożyczki.
+                </p>
+                <button
+                  type="button"
+                  className="vas-btn vas-btn-primary vas-btn-block vas-mt-md"
+                  onClick={openLenderPortal}
+                >
+                  Przejdź do portalu pożyczkodawcy
+                </button>
               </section>
 
+              <section
+                className="vas-card vas-card-elevated"
+                aria-labelledby="redemption-history-title"
+              >
+                <div className="vas-card-head">
+                  <h2 id="redemption-history-title" className="vas-h2">
+                    Historia wykorzystanych punktów
+                  </h2>
+                  <span className="vas-badge">Potwierdzenia API</span>
+                </div>
+                {clientRedemptionHistory.length === 0 ? (
+                  <p className="vas-muted">
+                    Brak potwierdzonych wykorzystań. Punkty są odejmiane wyłącznie po
+                    potwierdzeniu przez pożyczkodawcę w jego portalu.
+                  </p>
+                ) : (
+                  <div className="vas-table-wrap vas-table-wrap-tight">
+                    <table className="vas-table vas-table-compact">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Punkty</th>
+                          <th>Pożyczkodawca</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {clientRedemptionHistory.map((row) => (
+                          <tr key={row.id}>
+                            <td>{formatDate(row.at)}</td>
+                            <td>
+                              <span className="vas-tag-neg">−{row.points}</span>
+                            </td>
+                            <td>{row.lenderName}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+
+            <div className="vas-mt-lg">
               <section className="vas-card vas-card-elevated" aria-labelledby="history-title">
                 <div className="vas-card-head">
                   <h2 id="history-title" className="vas-h2">
@@ -1007,7 +1118,7 @@ export default function App() {
                 <article className="vas-kpi">
                   <div className="vas-kpi-label">Wykorzystane punkty</div>
                   <div className="vas-kpi-value">{totalPointsRedeemed} pkt</div>
-                  <div className="vas-kpi-foot">Łącznie na benefity (redemption)</div>
+                  <div className="vas-kpi-foot">Potwierdzone przez API pożyczkodawcy</div>
                 </article>
               </div>
 
@@ -1027,7 +1138,7 @@ export default function App() {
                         <th>Wartość zakupów</th>
                         <th>Punkty zdobyte</th>
                         <th>Punkty dostępne</th>
-                        <th>Wykorzystane benefity</th>
+                        <th>Wykorzystanie punktów (API)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1064,8 +1175,8 @@ export default function App() {
                             <strong>{row.pointsAvailable}</strong> pkt
                           </td>
                           <td>
-                            {row.benefitCount > 0
-                              ? `${row.benefitCount} (${row.pointsSpentOnBenefits} pkt)`
+                            {row.redemptionCount > 0
+                              ? `${row.redemptionCount} (${row.pointsSpentOnRedemptions} pkt)`
                               : '—'}
                           </td>
                         </tr>
@@ -1121,7 +1232,7 @@ export default function App() {
                   <h2 className="vas-h2">Status wykorzystania punktów (skrót)</h2>
                 </div>
                 <p className="vas-muted vas-mb-md">
-                  Punkty zdobyte z VAS vs. dostępne saldo vs. punkty zużyte na benefity —
+                  Punkty zdobyte z VAS vs. dostępne saldo vs. punkty potwierdzone przez API —
                   szczegóły w tabeli klientów powyżej.
                 </p>
                 <ul className="vas-product-mini">
@@ -1130,12 +1241,67 @@ export default function App() {
                       <span>{r.name}</span>
                       <span className="vas-muted">
                         zdobyte {r.pointsEarnedFromVas} pkt · dostępne{' '}
-                        <strong>{r.pointsAvailable}</strong> pkt · benefity{' '}
-                        {r.pointsSpentOnBenefits} pkt
+                        <strong>{r.pointsAvailable}</strong> pkt · wykorzystane (API){' '}
+                        {r.pointsSpentOnRedemptions} pkt
                       </span>
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              <div className="vas-card vas-card-elevated vas-mt-lg">
+                <div className="vas-card-head">
+                  <h2 className="vas-h2">Symulacja API potwierdzenia wykorzystania</h2>
+                  <span className="vas-badge vas-badge-navy">Demo</span>
+                </div>
+                <p className="vas-muted vas-mb-md">
+                  W produkcji pożyczkodawca wywołuje API platformy po wykorzystaniu punktów w
+                  swoim portalu. Poniżej symulacja zapisu potwierdzenia (odejmowanie punktów i
+                  wpis w historii).
+                </p>
+                <div className="vas-lender-api-demo">
+                  <label className="vas-field">
+                    <span className="vas-field-label">Klient</span>
+                    <select
+                      className="vas-input"
+                      value={lenderApiDemoClientId}
+                      onChange={(e) => setLenderApiDemoClientId(e.target.value)}
+                    >
+                      {BASE_CLIENTS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.loanNumber}) —{' '}
+                          {pointsByClient[c.id] ?? c.basePoints} pkt
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="vas-field">
+                    <span className="vas-field-label">Opcja wykorzystania</span>
+                    <select
+                      className="vas-input"
+                      value={lenderApiDemoOptionId}
+                      onChange={(e) => setLenderApiDemoOptionId(e.target.value)}
+                    >
+                      {LENDER_POINTS_CATALOG.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label} — {o.pointsCost} pkt
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="vas-btn vas-btn-secondary"
+                    onClick={() =>
+                      confirmRedemptionViaLenderApi(
+                        lenderApiDemoClientId,
+                        lenderApiDemoOptionId,
+                      )
+                    }
+                  >
+                    Wyślij potwierdzenie API (demo)
+                  </button>
+                </div>
               </div>
             </section>
           </main>
@@ -1207,16 +1373,14 @@ export default function App() {
                   <div className="vas-kpi-foot">Nagrody lojalnościowe</div>
                 </article>
                 <article className="vas-kpi">
-                  <div className="vas-kpi-label">Punkty wykorzystane (benefity)</div>
-                  <div className="vas-kpi-value">
-                    {benefitUses.reduce((s, b) => s + b.costPoints, 0)} pkt
-                  </div>
-                  <div className="vas-kpi-foot">Wykorzystanie benefitów</div>
+                  <div className="vas-kpi-label">Punkty wykorzystane (API)</div>
+                  <div className="vas-kpi-value">{totalPointsRedeemed} pkt</div>
+                  <div className="vas-kpi-foot">Potwierdzenia od pożyczkodawcy</div>
                 </article>
                 <article className="vas-kpi">
-                  <div className="vas-kpi-label">Klienci z benefitem</div>
+                  <div className="vas-kpi-label">Klienci z wykorzystaniem</div>
                   <div className="vas-kpi-value">
-                    {new Set(benefitUses.map((b) => b.clientId)).size}
+                    {new Set(lenderRedemptions.map((r) => r.clientId)).size}
                   </div>
                   <div className="vas-kpi-foot">Unikalni użytkownicy</div>
                 </article>
