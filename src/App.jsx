@@ -76,6 +76,69 @@ const BENEFITS = [
   },
 ]
 
+const HOME_OFFER_HIGHLIGHTS = [
+  { icon: '🛡️', title: 'Ubezpieczenia' },
+  { icon: '🩺', title: 'Telemedycyna' },
+  { icon: '🌍', title: 'Kursy językowe' },
+  { icon: '⚖️', title: 'Pomoc prawna' },
+  { icon: '🔒', title: 'Bezpieczny BIK' },
+  { icon: '🏠', title: 'Assistance domowy' },
+  { icon: '🐾', title: 'Ochrona pupila' },
+  { icon: '💼', title: 'Pakiety zdrowotne i wellbeing' },
+]
+
+const LOYALTY_HOME_PERKS = [
+  { icon: '📅', text: 'Przesunięcie spłaty pożyczki o 7–30 dni' },
+  { icon: '💳', text: 'Spłata części pożyczki' },
+  { icon: '⚡', text: 'Usługa przyspieszenia przyznania pożyczki' },
+  { icon: '🎁', text: 'Rabaty i bonusy za aktywność w programie' },
+]
+
+const OFFER_CATEGORIES = [
+  {
+    id: 'insurance',
+    title: 'Ubezpieczenia',
+    icon: '🛡️',
+    desc: 'Życie, NNW, mieszkanie, OC/AC — dopasowane do Twoich potrzeb.',
+    tags: ['Życie', 'NNW', 'Mieszkanie'],
+  },
+  {
+    id: 'health',
+    title: 'Opieka zdrowotna',
+    icon: '🩺',
+    desc: 'Telemedycyna, badania, opieka stomatologiczna i specjalistyczna.',
+    tags: ['Telemedycyna', 'Badania', 'Stomatologia'],
+  },
+  {
+    id: 'legal',
+    title: 'Pomoc prawna',
+    icon: '⚖️',
+    desc: 'Konsultacje prawne, wzory umów, wsparcie w sporach konsumenckich.',
+    tags: ['Konsultacje', 'Umowy', 'Spory'],
+  },
+  {
+    id: 'home',
+    title: 'Assistance domowy',
+    icon: '🏠',
+    desc: 'Hydraulik, elektryk, ślusarz — szybka interwencja w domu.',
+    tags: ['Awaria', '24/7', 'Dom'],
+  },
+  {
+    id: 'pets',
+    title: 'Ochrona pupila',
+    icon: '🐾',
+    desc: 'Ubezpieczenie weterynaryjne i assistance dla zwierząt.',
+    tags: ['Weterynarz', 'Assistance'],
+  },
+  {
+    id: 'education',
+    title: 'Nauka języków obcych',
+    icon: '🌍',
+    desc: 'Kursy online, lekcje z lektorem, materiały do samodzielnej nauki.',
+    tags: ['Angielski', 'Online', 'Lektor'],
+  },
+]
+
 const ROLE_NAV = [
   {
     id: 'client',
@@ -168,6 +231,7 @@ export default function App() {
   const [loanLogin, setLoanLogin] = useState('')
   const [loginError, setLoginError] = useState('')
   const [clientSessionId, setClientSessionId] = useState(null)
+  const [clientScreen, setClientScreen] = useState('home')
   const [toast, setToast] = useState(null)
 
   const [pointsByClient, setPointsByClient] = useState(() =>
@@ -405,6 +469,7 @@ export default function App() {
 
   const logoutClient = () => {
     setClientSessionId(null)
+    setClientScreen('home')
     setLoanLogin('')
     setLoginError('')
     showToast('Wylogowano z portalu klienta.')
@@ -468,6 +533,7 @@ export default function App() {
     setBenefitUses([])
     setClientLogins({})
     setClientSessionId(null)
+    setClientScreen('home')
     setLoanLogin('')
     setLoginError('')
     localStorage.removeItem(STORAGE_KEY)
@@ -477,6 +543,7 @@ export default function App() {
   const switchRole = (next) => {
     setRole(next)
     setLoginError('')
+    if (next === 'client' && !clientSessionId) setClientScreen('home')
   }
 
   const roleMeta = ROLE_NAV.find((r) => r.id === role)
@@ -492,7 +559,9 @@ export default function App() {
             <div className="vas-brand-title">VAS Loyalty</div>
             <div className="vas-brand-sub">
               {role === 'client'
-                ? 'Portal Klienta · tylko Twoje konto'
+                ? clientSessionId
+                  ? 'Portal Klienta · tylko Twoje konto'
+                  : 'Strona główna · wybierz ścieżkę'
                 : `${roleMeta?.label ?? ''} · demo (osobny widok)`}
             </div>
           </div>
@@ -524,58 +593,160 @@ export default function App() {
         </div>
       </header>
 
-      {role === 'client' && !clientSessionId ? (
-        <main className="vas-login-main">
-          <div className="vas-login-grid">
-            <section className="vas-login-hero" aria-hidden="false">
-              <p className="vas-login-eyebrow">Program lojalnościowy</p>
-              <h1 className="vas-login-title">Portal Klienta</h1>
-              <p className="vas-login-lead">
-                Zaloguj się numerem pożyczki, aby zobaczyć saldo punktów, aktywne usługi
-                oraz benefity dostępne wyłącznie na Twoim koncie.
+      {role === 'client' && !clientSessionId && clientScreen === 'home' ? (
+        <main className="vas-home-main">
+          <div className="vas-home-intro">
+            <p className="vas-login-eyebrow">VAS · usługi dodatkowe</p>
+            <h1 className="vas-home-title">W czym możemy Ci pomóc?</h1>
+            <p className="vas-home-lead">
+              Wybierz jedną z dwóch ścieżek — przegląd oferty lub dołączenie do programu
+              lojalnościowego dla klientów {LENDER.name}.
+            </p>
+          </div>
+          <div className="vas-home-tiles">
+            <article className="vas-home-tile vas-home-tile-offers vas-home-tile-panel vas-home-tile-offers-rich">
+              <span className="vas-home-tile-icon" aria-hidden>
+                📋
+              </span>
+              <h2 className="vas-home-tile-title">Przeglądaj ofertę</h2>
+              <p className="vas-home-tile-lead">
+                Odkryj usługi dodatkowe dopasowane do życia na co dzień — od ochrony
+                finansowej po zdrowie, rozwój i spokój w domu. Wybierz to, czego
+                naprawdę potrzebujesz, w przejrzystych pakietach VAS.
               </p>
-              <ul className="vas-login-bullets">
-                <li>Bezpieczny dostęp identyfikatorem umowy</li>
-                <li>Brak podglądu danych innych klientów</li>
-                <li>Historia zakupów i transakcji punktowych</li>
+              <ul className="vas-home-offer-highlights vas-home-offer-highlights-compact">
+                {HOME_OFFER_HIGHLIGHTS.map((item) => (
+                  <li key={item.title}>
+                    <span className="vas-home-offer-ico" aria-hidden>
+                      {item.icon}
+                    </span>
+                    <span className="vas-home-offer-name">{item.title}</span>
+                  </li>
+                ))}
               </ul>
-            </section>
-            <section className="vas-login-card-wrap" aria-labelledby="login-heading">
-              <div className="vas-login-card">
-                <h2 id="login-heading" className="vas-login-card-title">
-                  Logowanie
-                </h2>
-                <p className="vas-login-card-sub">
-                  Wpisz numer pożyczki przypisany do Twojej umowy.
+              <p className="vas-home-offer-footer">
+                Setki kombinacji pakietów — sprawdź szczegóły i wybierz najlepszą ofertę
+                dla siebie.
+              </p>
+              <button
+                type="button"
+                className="vas-btn vas-btn-secondary vas-btn-block vas-home-offer-btn"
+                onClick={() => setClientScreen('offers')}
+              >
+                Przeglądaj ofertę
+              </button>
+            </article>
+            <article className="vas-home-tile vas-home-tile-loyalty vas-home-tile-panel">
+              <span className="vas-home-tile-icon" aria-hidden>
+                ⭐
+              </span>
+              <h2 className="vas-home-tile-title">
+                Mam pożyczkę i chcę dołączyć do programu lojalnościowego
+              </h2>
+              <p className="vas-home-tile-desc vas-home-tile-desc-tight">
+                Dołącz do programu lojalnościowego {LENDER.name}: zbieraj punkty za
+                zakupy VAS i wymieniaj je na korzyści przy spłacie pożyczki.
+              </p>
+              <ul className="vas-home-loyalty-perks" aria-label="Przykładowe korzyści programu">
+                {LOYALTY_HOME_PERKS.map((perk) => (
+                  <li key={perk.text}>
+                    <span aria-hidden>{perk.icon}</span>
+                    {perk.text}
+                  </li>
+                ))}
+              </ul>
+              <form
+                className="vas-form vas-home-login-form"
+                onSubmit={handleLoanLogin}
+                aria-labelledby="home-login-heading"
+              >
+                <h3 id="home-login-heading" className="vas-home-login-label">
+                  Numer pożyczki
+                </h3>
+                <input
+                  id="loan-home"
+                  className="vas-input vas-input-lg"
+                  placeholder="np. SP-1001"
+                  value={loanLogin}
+                  onChange={(e) => setLoanLogin(e.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                />
+                {loginError ? (
+                  <p className="vas-form-error" role="alert">
+                    {loginError}
+                  </p>
+                ) : null}
+                <button type="submit" className="vas-btn vas-btn-primary vas-btn-block vas-mt-sm">
+                  Zaloguj się
+                </button>
+                <p className="vas-login-demo-hint vas-home-demo-hint">
+                  Demo: <strong>SP-1001</strong>, <strong>SP-1002</strong>,{' '}
+                  <strong>SP-1003</strong>
                 </p>
-                <form className="vas-form" onSubmit={handleLoanLogin}>
-                  <label className="vas-label" htmlFor="loan">
-                    Numer pożyczki
-                  </label>
-                  <input
-                    id="loan"
-                    className="vas-input vas-input-lg"
-                    placeholder="np. SP-1001"
-                    value={loanLogin}
-                    onChange={(e) => setLoanLogin(e.target.value)}
-                    autoComplete="off"
-                    autoCapitalize="characters"
-                  />
-                  {loginError ? (
-                    <p className="vas-form-error" role="alert">
-                      {loginError}
-                    </p>
-                  ) : null}
-                  <button type="submit" className="vas-btn vas-btn-primary vas-btn-block vas-mt-md">
-                    Zaloguj się
-                  </button>
-                </form>
-                <p className="vas-login-demo-hint">
-                  Demo: numery <strong>SP-1001</strong>, <strong>SP-1002</strong>,{' '}
-                  <strong>SP-1003</strong> (bez ujawniania tożsamości do momentu logowania).
-                </p>
-              </div>
-            </section>
+              </form>
+            </article>
+          </div>
+        </main>
+      ) : null}
+
+      {role === 'client' && !clientSessionId && clientScreen === 'offers' ? (
+        <main className="vas-home-main vas-home-sub">
+          <button
+            type="button"
+            className="vas-back-link"
+            onClick={() => setClientScreen('home')}
+          >
+            ← Strona główna
+          </button>
+          <div className="vas-pagehead vas-pagehead-tight">
+            <div>
+              <h1 className="vas-h1">Przeglądaj ofertę</h1>
+              <p className="vas-lead">
+                Ubezpieczenia, opieka zdrowotna, pomoc prawna, nauka języków obcych i
+                inne pakiety — demo katalogu usług dodatkowych.
+              </p>
+            </div>
+          </div>
+          <div className="vas-offer-grid">
+            {OFFER_CATEGORIES.map((cat) => (
+              <article key={cat.id} className="vas-offer-card">
+                <div className="vas-offer-card-icon" aria-hidden>
+                  {cat.icon}
+                </div>
+                <h2 className="vas-h3">{cat.title}</h2>
+                <p className="vas-muted vas-text-sm">{cat.desc}</p>
+                <div className="vas-offer-tags">
+                  {cat.tags.map((t) => (
+                    <span key={t} className="vas-pill">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="vas-btn vas-btn-ghost vas-btn-sm vas-mt-md"
+                  onClick={() => setClientScreen('home')}
+                >
+                  Mam pożyczkę — zaloguj na stronie głównej
+                </button>
+              </article>
+            ))}
+          </div>
+          <div className="vas-card vas-card-tint vas-mt-lg">
+            <p className="vas-muted vas-mb-md">
+              Produkty dostępne w programie dla klientów {LENDER.name} (po zalogowaniu):
+            </p>
+            <ul className="vas-product-mini">
+              {VAS_PRODUCTS.map((p) => (
+                <li key={p.id}>
+                  <span>
+                    {p.icon} {p.name}
+                  </span>
+                  <span className="vas-muted">od {formatMoney(p.pricePln)}/mies.</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </main>
       ) : null}
