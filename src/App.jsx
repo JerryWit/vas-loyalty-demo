@@ -322,6 +322,10 @@ function commissionOnPrice(pricePln) {
   return Math.round((pricePln * LENDER.commissionPercent) / 100)
 }
 
+function commissionPointsOnPurchase(pointsEarned) {
+  return Math.round((pointsEarned * LENDER.commissionPercent) / 100)
+}
+
 export default function App() {
   const [role, setRole] = useState('client')
   const [loanLogin, setLoanLogin] = useState('')
@@ -530,24 +534,34 @@ export default function App() {
     return BASE_CLIENTS.filter((c) => (clientLogins[c.id]?.count ?? 0) > 0).length
   }, [clientLogins])
 
-  const totalPointsHeldByClients = useMemo(() => {
-    return BASE_CLIENTS.reduce(
-      (s, c) => s + (pointsByClient[c.id] ?? c.basePoints),
-      0,
-    )
-  }, [pointsByClient])
-
   const totalPointsRedeemed = useMemo(
     () => lenderRedemptions.reduce((s, r) => s + r.points, 0),
     [lenderRedemptions],
   )
 
+  const totalVasPointsEarned = useMemo(
+    () => purchases.reduce((s, p) => s + p.pointsEarned, 0),
+    [purchases],
+  )
+
+  const lenderCommissionPointsTotal = useMemo(
+    () =>
+      purchases.reduce(
+        (s, p) => s + commissionPointsOnPurchase(p.pointsEarned),
+        0,
+      ),
+    [purchases],
+  )
+
   const lenderPortalRows = useMemo(() => {
     return BASE_CLIENTS.map((c) => {
       const clientPurch = purchases.filter((x) => x.clientId === c.id)
-      const spend = clientPurch.reduce((s, x) => s + x.pricePln, 0)
       const pointsEarnedFromVas = clientPurch.reduce(
         (s, x) => s + x.pointsEarned,
+        0,
+      )
+      const commissionPointsFromVas = clientPurch.reduce(
+        (s, x) => s + commissionPointsOnPurchase(x.pointsEarned),
         0,
       )
       const pointsAvailable = pointsByClient[c.id] ?? c.basePoints
@@ -573,8 +587,8 @@ export default function App() {
       const sessionActiveHere = clientSessionId === c.id
       return {
         ...c,
-        spend,
         pointsEarnedFromVas,
+        commissionPointsFromVas,
         pointsAvailable,
         purchaseCount: clientPurch.length,
         vasSummary,
@@ -602,7 +616,7 @@ export default function App() {
           ...row,
           clientName: cl?.name ?? '—',
           loanNumber: cl?.loanNumber ?? '—',
-          commission: commissionOnPrice(row.pricePln),
+          commissionPoints: commissionPointsOnPurchase(row.pointsEarned),
         }
       })
   }, [purchases])
@@ -1471,8 +1485,8 @@ export default function App() {
                     Panel Pożyczkodawcy
                   </h1>
                   <p className="vas-lead">
-                    Widok operacyjny wyłącznie dla klientów {LENDER.name}: logowania do
-                    portalu, sprzedaż VAS, punkty i prowizje partnera (demo bez backendu).
+                    Widok operacyjny wyłącznie dla klientów {LENDER.name}: logowania,
+                    liczba zakupów VAS, punkty zdobyte i prowizja w punktach (demo bez backendu).
                   </p>
                 </div>
               </div>
@@ -1491,28 +1505,16 @@ export default function App() {
                   <div className="vas-kpi-foot">Wszystkie transakcje dodatków</div>
                 </article>
                 <article className="vas-kpi">
-                  <div className="vas-kpi-label">Łączna sprzedaż VAS</div>
-                  <div className="vas-kpi-value">{formatMoney(totalVasRevenue)}</div>
-                  <div className="vas-kpi-foot">Przychód z usług VAS</div>
+                  <div className="vas-kpi-label">Punkty zdobyte z VAS</div>
+                  <div className="vas-kpi-value">{totalVasPointsEarned} pkt</div>
+                  <div className="vas-kpi-foot">Suma punktów przyznanych klientom za zakupy</div>
                 </article>
                 <article className="vas-kpi vas-kpi-accent">
                   <div className="vas-kpi-label">Prowizja dla {LENDER.name}</div>
-                  <div className="vas-kpi-value">
-                    {formatMoney(lenderCommissionTotal)}
-                  </div>
+                  <div className="vas-kpi-value">{lenderCommissionPointsTotal} pkt</div>
                   <div className="vas-kpi-foot">
-                    {LENDER.commissionPercent}% od sprzedaży VAS
+                    {LENDER.commissionPercent}% punktów zdobytych przy sprzedaży VAS
                   </div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Łączne salda punktów klientów</div>
-                  <div className="vas-kpi-value">{totalPointsHeldByClients} pkt</div>
-                  <div className="vas-kpi-foot">Suma aktualnych punktów na kontach</div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Wykorzystane punkty</div>
-                  <div className="vas-kpi-value">{totalPointsRedeemed} pkt</div>
-                  <div className="vas-kpi-foot">Potwierdzone przez API pożyczkodawcy</div>
                 </article>
               </div>
 
@@ -1529,10 +1531,8 @@ export default function App() {
                         <th>Numer pożyczki</th>
                         <th>Status logowania</th>
                         <th>Zakupione VAS</th>
-                        <th>Wartość zakupów</th>
                         <th>Punkty zdobyte</th>
-                        <th>Punkty dostępne</th>
-                        <th>Wykorzystanie punktów (API)</th>
+                        <th>Prowizja (pkt)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1559,18 +1559,24 @@ export default function App() {
                             )}
                           </td>
                           <td>
-                            <span className="vas-cell-multiline" title={row.vasSummary}>
-                              {row.vasSummary}
-                            </span>
+                            <strong>{row.purchaseCount}</strong>
+                            {row.purchaseCount === 1 ? ' zakup' : ' zakupy'}
+                            {row.purchaseCount > 0 ? (
+                              <span
+                                className="vas-muted vas-text-sm vas-cell-multiline"
+                                title={row.vasSummary}
+                              >
+                                {' '}
+                                · {row.vasSummary}
+                              </span>
+                            ) : null}
                           </td>
-                          <td>{formatMoney(row.spend)}</td>
-                          <td>{row.pointsEarnedFromVas} pkt</td>
                           <td>
-                            <strong>{row.pointsAvailable}</strong> pkt
+                            <span className="vas-tag-pos">+{row.pointsEarnedFromVas} pkt</span>
                           </td>
                           <td>
-                            {row.redemptionCount > 0
-                              ? `${row.redemptionCount} (${row.pointsSpentOnRedemptions} pkt)`
+                            {row.commissionPointsFromVas > 0
+                              ? `${row.commissionPointsFromVas} pkt`
                               : '—'}
                           </td>
                         </tr>
@@ -1596,9 +1602,8 @@ export default function App() {
                           <th>Klient</th>
                           <th>Numer pożyczki</th>
                           <th>Produkt VAS</th>
-                          <th>Cena</th>
-                          <th>Punkty</th>
-                          <th>Prowizja pożyczkodawcy</th>
+                          <th>Punkty zdobyte</th>
+                          <th>Prowizja (pkt)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1608,39 +1613,16 @@ export default function App() {
                             <td>{row.clientName}</td>
                             <td>{row.loanNumber}</td>
                             <td>{row.productName}</td>
-                            <td>{formatMoney(row.pricePln)}</td>
                             <td>
-                              <span className="vas-tag-pos">+{row.pointsEarned}</span>
+                              <span className="vas-tag-pos">+{row.pointsEarned} pkt</span>
                             </td>
-                            <td>{formatMoney(row.commission)}</td>
+                            <td>{row.commissionPoints} pkt</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
-              </div>
-
-              <div className="vas-card vas-card-soft vas-mt-lg">
-                <div className="vas-card-head">
-                  <h2 className="vas-h2">Status wykorzystania punktów (skrót)</h2>
-                </div>
-                <p className="vas-muted vas-mb-md">
-                  Punkty zdobyte z VAS vs. dostępne saldo vs. punkty potwierdzone przez API —
-                  szczegóły w tabeli klientów powyżej.
-                </p>
-                <ul className="vas-product-mini">
-                  {lenderPortalRows.map((r) => (
-                    <li key={r.id}>
-                      <span>{r.name}</span>
-                      <span className="vas-muted">
-                        zdobyte {r.pointsEarnedFromVas} pkt · dostępne{' '}
-                        <strong>{r.pointsAvailable}</strong> pkt · wykorzystane (API){' '}
-                        {r.pointsSpentOnRedemptions} pkt
-                      </span>
-                    </li>
-                  ))}
-                </ul>
               </div>
 
               <div className="vas-card vas-card-elevated vas-mt-lg">
