@@ -1319,13 +1319,13 @@ export default function App() {
                     nie przez API.
                   </p>
                 </div>
-                <div className="vas-table-wrap vas-mt-md">
+                <div className="vas-table-wrap vas-table-wrap-points-catalog vas-mt-md">
                   <table className="vas-table vas-table-compact vas-points-catalog-table">
                     <thead>
                       <tr>
-                        <th>Opcja (portal pożyczkodawcy)</th>
-                        <th>Koszt punktów</th>
-                        <th>Na Twoje saldo</th>
+                        <th>Opcja</th>
+                        <th>Koszt</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1333,17 +1333,19 @@ export default function App() {
                         const affordable = pointsSession >= row.pointsCost
                         return (
                           <tr key={row.id}>
-                            <td>{row.label}</td>
-                            <td>
-                              <span className="vas-cost-pill">{row.pointsCost} pkt</span>
+                            <td className="vas-points-catalog-option">{row.label}</td>
+                            <td className="vas-points-catalog-cost">
+                              <span className="vas-cost-pill vas-cost-pill-sm">
+                                {row.pointsCost} pkt
+                              </span>
                             </td>
-                            <td>
+                            <td className="vas-points-catalog-status">
                               {!row.allowed ? (
-                                <span className="vas-muted vas-text-sm">niedostępne w portalu</span>
+                                <span className="vas-muted vas-text-sm">niedostępne</span>
                               ) : affordable ? (
-                                <span className="vas-tag-pos">wystarczy</span>
+                                <span className="vas-tag-pos vas-tag-pos-sm">wystarczy</span>
                               ) : (
-                                <span className="vas-muted">za mało punktów</span>
+                                <span className="vas-muted vas-text-sm">za mało</span>
                               )}
                             </td>
                           </tr>

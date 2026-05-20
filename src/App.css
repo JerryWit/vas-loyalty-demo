@@ -1378,6 +1378,60 @@
   margin: 0;
 }
 
+.vas-table-wrap-points-catalog {
+  overflow: visible;
+}
+
+.vas-points-catalog-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+.vas-points-catalog-table th,
+.vas-points-catalog-table td {
+  padding: 8px 8px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.vas-points-catalog-table th:nth-child(1),
+.vas-points-catalog-table td:nth-child(1) {
+  width: 54%;
+}
+
+.vas-points-catalog-table th:nth-child(2),
+.vas-points-catalog-table td:nth-child(2) {
+  width: 22%;
+  white-space: nowrap;
+}
+
+.vas-points-catalog-table th:nth-child(3),
+.vas-points-catalog-table td:nth-child(3) {
+  width: 24%;
+  text-align: center;
+}
+
+.vas-points-catalog-cost {
+  text-align: center;
+}
+
+.vas-points-catalog-status {
+  text-align: center;
+}
+
+.vas-cost-pill-sm {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.vas-tag-pos-sm {
+  font-size: 11px;
+  padding: 3px 7px;
+}
+
 .vas-points-catalog-table tbody tr:hover {
   background: var(--vas-snow);
 }
