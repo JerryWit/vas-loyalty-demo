@@ -573,16 +573,6 @@ export default function App() {
         (s, r) => s + r.points,
         0,
       )
-      const nameCount = {}
-      clientPurch.forEach((p) => {
-        nameCount[p.productName] = (nameCount[p.productName] ?? 0) + 1
-      })
-      const vasSummary =
-        Object.keys(nameCount).length === 0
-          ? '—'
-          : Object.entries(nameCount)
-              .map(([n, ct]) => `${n} ×${ct}`)
-              .join(', ')
       const login = clientLogins[c.id]
       const sessionActiveHere = clientSessionId === c.id
       return {
@@ -591,7 +581,6 @@ export default function App() {
         commissionPointsFromVas,
         pointsAvailable,
         purchaseCount: clientPurch.length,
-        vasSummary,
         redemptionCount,
         pointsSpentOnRedemptions,
         lastLoginAt: login?.lastAt ?? null,
@@ -1561,17 +1550,16 @@ export default function App() {
                             )}
                           </td>
                           <td>
-                            <strong>{row.purchaseCount}</strong>
-                            {row.purchaseCount === 1 ? ' zakup' : ' zakupy'}
                             {row.purchaseCount > 0 ? (
-                              <span
-                                className="vas-muted vas-text-sm vas-cell-multiline"
-                                title={row.vasSummary}
-                              >
-                                {' '}
-                                · {row.vasSummary}
-                              </span>
-                            ) : null}
+                              <>
+                                <strong>{row.purchaseCount}</strong>
+                                {row.purchaseCount === 1
+                                  ? ' zakup VAS'
+                                  : ' zakupy VAS'}
+                              </>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                           <td>
                             <span className="vas-tag-pos">+{row.pointsEarnedFromVas} pkt</span>
@@ -1603,7 +1591,6 @@ export default function App() {
                           <th>Data</th>
                           <th>Klient</th>
                           <th>Numer pożyczki</th>
-                          <th>Produkt VAS</th>
                           <th>Punkty zdobyte</th>
                           <th>Prowizja (pkt)</th>
                         </tr>
@@ -1614,7 +1601,6 @@ export default function App() {
                             <td>{formatDate(row.at)}</td>
                             <td>{row.clientName}</td>
                             <td>{row.loanNumber}</td>
-                            <td>{row.productName}</td>
                             <td>
                               <span className="vas-tag-pos">+{row.pointsEarned} pkt</span>
                             </td>
