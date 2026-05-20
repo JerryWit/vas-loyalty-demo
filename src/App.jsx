@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 
-const STORAGE_KEY = 'vas-smartpozyczka-demo-v1'
+const STORAGE_KEY = 'vas-eksprespozyczka-demo-v1'
+const STORAGE_KEY_LEGACY = 'vas-smartpozyczka-demo-v1'
 
 const LENDER = {
-  name: 'SmartPożyczka',
+  name: 'EkspresPożyczka',
   commissionPercent: 25,
-  portalUrl: 'https://www.smartpozyczka.pl/demo-portal',
+  portalUrl: 'https://www.eksprespozyczka.pl/demo-portal',
 }
 
 const BASE_CLIENTS = [
@@ -194,7 +195,9 @@ const ROLE_NAV = [
 
 function loadPersisted() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem(STORAGE_KEY_LEGACY)
     if (!raw) return null
     return JSON.parse(raw)
   } catch {
