@@ -403,7 +403,7 @@ export default function App() {
   )
 
   const pointsSession = sessionClient
-    ? pointsByClient[sessionClient.id] ?? 0
+    ? pointsByClient[sessionClient.id] ?? sessionClient.basePoints
     : 0
 
   const lenderPortalClient = useMemo(() => {
@@ -440,11 +440,11 @@ export default function App() {
     ? getRepaymentDate(lenderPortalClient, lenderPortalExtra)
     : null
 
+  /** Kalkulator VAS: tylko czy stać na koszt w punktach (bez reguł portalu pożyczkodawcy). */
   const clientCalculatorRows = useMemo(() => {
     if (!sessionClient) return []
-    const extra = repaymentExtraDays[sessionClient.id] ?? 0
-    return getPortalRedemptionRows(sessionClient, new Date().toISOString(), extra)
-  }, [sessionClient, repaymentExtraDays])
+    return LENDER_POINTS_CATALOG
+  }, [sessionClient])
 
   const clientPurchases = useMemo(() => {
     if (!clientSessionId) return []
@@ -1329,9 +1329,7 @@ export default function App() {
                               </span>
                             </td>
                             <td className="vas-points-catalog-status">
-                              {!row.allowed ? (
-                                <span className="vas-muted vas-text-sm">niedostępne</span>
-                              ) : affordable ? (
+                              {affordable ? (
                                 <span className="vas-tag-pos vas-tag-pos-sm">wystarczy</span>
                               ) : (
                                 <span className="vas-muted vas-text-sm">za mało</span>
@@ -1344,7 +1342,8 @@ export default function App() {
                   </table>
                 </div>
                 <p className="vas-muted vas-text-sm vas-mt-sm">
-                  Tabela ma charakter wyłącznie informacyjny — platforma nie inicjuje zmian warunków
+                  Tabela ma charakter wyłącznie informacyjny — pokazuje, czy stać Cię na koszt w
+                  punktach. Które opcje są dostępne w portalu pożyczkodawcy zależy od terminu spłaty
                   pożyczki.
                 </p>
                 <button
