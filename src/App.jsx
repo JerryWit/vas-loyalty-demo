@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import LoginSMS from './components/LoginSMS.jsx'
 import './App.css'
@@ -373,6 +373,9 @@ export default function App() {
   const [lenderPortalSelectedId, setLenderPortalSelectedId] = useState('')
   const [lenderPortalLoanLogin, setLenderPortalLoanLogin] = useState('')
   const [lenderPortalLoginError, setLenderPortalLoginError] = useState('')
+  const [lenderPortalProlongSuccess, setLenderPortalProlongSuccess] = useState(null)
+  const prolongAutoConfirmRef = useRef(null)
+  const prolongAutoConfirmStartedRef = useRef(null)
 
   const persist = useCallback(
     (nextPoints, nextPurchases, nextRedemptions, nextLogins, nextRepaymentExtra) => {
@@ -750,9 +753,23 @@ export default function App() {
   }
 
   const leaveLenderPortal = () => {
+    if (prolongAutoConfirmRef.current) {
+      clearTimeout(prolongAutoConfirmRef.current)
+      prolongAutoConfirmRef.current = null
+    }
+    prolongAutoConfirmStartedRef.current = null
+    setLenderPortalProlongSuccess(null)
     setClientScreen('home')
     setLenderPortalSelectedId('')
     setLenderPortalLoginError('')
+  }
+
+  const returnToVasOffersFromLenderPortal = () => {
+    const hadSession = Boolean(clientSessionId)
+    leaveLenderPortal()
+    if (!hadSession) {
+      setClientScreen('offers')
+    }
   }
 
   const handleLenderPortalLogin = (e) => {
@@ -850,15 +867,19 @@ export default function App() {
     return true
   }
 
-  /** Demo: webhook pożyczkodawcy → platforma zatwierdza przedłużenie w umowie. */
-  const confirmProlongationByPlatform = (redemptionId) => {
+  /** Demo: potwierdzenie pożyczkodawcy → aktualizacja terminu spłaty w umowie. */
+  const confirmProlongationByPlatform = (redemptionId, options = {}) => {
+    const { silent = false } = options
     const entry = lenderRedemptions.find((r) => r.id === redemptionId)
     if (!entry || entry.prolongStatus !== 'pending' || !(entry.prolongDays > 0)) {
-      showToast('Brak oczekującego wniosku o przedłużenie.', 'warn')
-      return false
+      if (!silent) showToast('Brak oczekującego wniosku o przedłużenie.', 'warn')
+      return null
     }
     const client = BASE_CLIENTS.find((c) => c.id === entry.clientId)
-    if (!client) return false
+    if (!client) return null
+
+    const extraBefore = repaymentExtraDays[entry.clientId] ?? 0
+    const newDate = getRepaymentDate(client, extraBefore + entry.prolongDays)
 
     setLenderRedemptions((prev) =>
       prev.map((r) =>
@@ -867,17 +888,56 @@ export default function App() {
     )
     setRepaymentExtraDays((prev) => ({
       ...prev,
-      [entry.clientId]: (prev[entry.clientId] ?? 0) + entry.prolongDays,
+      [entry.clientId]: extraBefore + entry.prolongDays,
     }))
-    const newDate = getRepaymentDate(
-      client,
-      (repaymentExtraDays[entry.clientId] ?? 0) + entry.prolongDays,
-    )
-    showToast(
-      `Webhook: ${LENDER.name} zatwierdził przedłużenie — spłata do ${formatDateOnly(newDate)} (demo).`,
-    )
-    return true
+    if (!silent) {
+      showToast(
+        `${LENDER.name} zatwierdził przedłużenie — spłata do ${formatDateOnly(newDate)} (demo).`,
+      )
+    }
+    return {
+      prolongDays: entry.prolongDays,
+      repaymentDate: newDate,
+      optionLabel: entry.optionLabel,
+    }
   }
+
+  useEffect(() => {
+    if (
+      clientScreen !== 'lender-portal' ||
+      !lenderPortalPendingProlong ||
+      lenderPortalProlongSuccess
+    ) {
+      return undefined
+    }
+
+    const redemptionId = lenderPortalPendingProlong.id
+    if (prolongAutoConfirmStartedRef.current === redemptionId) {
+      return undefined
+    }
+    prolongAutoConfirmStartedRef.current = redemptionId
+
+    const delayMs = 2000 + Math.floor(Math.random() * 3000)
+    prolongAutoConfirmRef.current = setTimeout(() => {
+      const result = confirmProlongationByPlatform(redemptionId, { silent: true })
+      if (result) {
+        setLenderPortalProlongSuccess(result)
+      }
+    }, delayMs)
+
+    return () => {
+      if (prolongAutoConfirmRef.current) {
+        clearTimeout(prolongAutoConfirmRef.current)
+        prolongAutoConfirmRef.current = null
+      }
+    }
+  }, [
+    clientScreen,
+    lenderPortalPendingProlong,
+    lenderPortalProlongSuccess,
+    lenderRedemptions,
+    repaymentExtraDays,
+  ])
 
   const submitLenderPortalRedemption = () => {
     if (!lenderPortalClient || !lenderPortalSelectedId) {
@@ -892,11 +952,7 @@ export default function App() {
     )
     if (ok) {
       setLenderPortalSelectedId('')
-      if (isProlong) {
-        showToast(
-          'Wniosek o przedłużenie wysłany do pożyczkodawcy. Termin spłaty zaktualizuje się po potwierdzeniu (demo).',
-        )
-      } else {
+      if (!isProlong) {
         showToast('Wykorzystano punkty (demo).')
       }
     }
@@ -916,6 +972,12 @@ export default function App() {
     setLenderPortalClientId(null)
     setLenderPortalVisitAt(null)
     setLenderPortalSelectedId('')
+    setLenderPortalProlongSuccess(null)
+    prolongAutoConfirmStartedRef.current = null
+    if (prolongAutoConfirmRef.current) {
+      clearTimeout(prolongAutoConfirmRef.current)
+      prolongAutoConfirmRef.current = null
+    }
     setClientScreen('home')
     setLoanLogin('')
     setLoginError('')
@@ -1051,7 +1113,7 @@ export default function App() {
               </section>
             ) : (
               <>
-                {lenderPortalPendingProlong ? (
+                {lenderPortalPendingProlong && !lenderPortalProlongSuccess ? (
                   <section
                     className="vas-lender-portal-card vas-lender-loan-status is-pending"
                     role="status"
@@ -1063,9 +1125,9 @@ export default function App() {
                       <span className="vas-mono-strong">{lenderPortalClient.loanNumber}</span>
                     </p>
                     <p className="vas-lender-pending-body">
-                      Pożyczka została przedłużona w programie lojalnościowym. Wniosek został
-                      wysłany do <strong>{LENDER.name}</strong> i oczekuje na potwierdzenie w systemie
-                      pożyczkodawcy (webhook).
+                      Wniosek został wysłany do <strong>{LENDER.name}</strong> i oczekuje na
+                      potwierdzenie w systemie pożyczkodawcy. Nie zamykaj tego okna — poczekaj na
+                      potwierdzenie od Pożyczkodawcy.
                     </p>
                     <div className="vas-lender-pending-date">
                       <span className="vas-muted vas-text-sm">Spłata po zatwierdzeniu wniosku</span>
@@ -1075,10 +1137,9 @@ export default function App() {
                           : '—'}
                       </div>
                     </div>
-                    <p className="vas-muted vas-text-sm vas-lender-pending-meta">
-                      Przedłużenie o <strong>{lenderPortalPendingProlong.prolongDays} dni</strong> ·{' '}
-                      {lenderPortalPendingProlong.optionLabel} · złożono{' '}
-                      {formatDate(lenderPortalPendingProlong.at)}
+                    <p className="vas-lender-pending-wait" aria-live="polite">
+                      <span className="vas-lender-pending-spinner" aria-hidden="true" />
+                      Trwa oczekiwanie na potwierdzenie…
                     </p>
                   </section>
                 ) : (
@@ -1127,6 +1188,8 @@ export default function App() {
                   </section>
                 )}
 
+                {!lenderPortalPendingProlong ? (
+                  <>
                 <section className="vas-lender-portal-card">
                   <div className="vas-lender-api-row">
                     <span className="vas-lender-api-label">Zapytanie API → platforma VAS</span>
@@ -1144,12 +1207,6 @@ export default function App() {
 
                 <section className="vas-lender-portal-card">
                   <h2 className="vas-h3 vas-mb-md">Wykorzystaj punkty</h2>
-                  {lenderPortalPendingProlong ? (
-                    <p className="vas-info-callout vas-mb-md" role="note">
-                      Kolejne przedłużenie będzie możliwe po potwierdzeniu bieżącego wniosku przez
-                      system pożyczkodawcy.
-                    </p>
-                  ) : null}
                   <ul className="vas-lender-option-list">
                     {portalRedemptionRows.map((row) => {
                       const affordable = lenderPortalPoints >= row.pointsCost
@@ -1217,6 +1274,51 @@ export default function App() {
                     Potwierdź wykorzystanie punktów
                   </button>
                 </section>
+                  </>
+                ) : null}
+
+                {lenderPortalProlongSuccess ? (
+                  <div
+                    className="vas-lender-confirm-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="lender-prolong-success-title"
+                  >
+                    <div className="vas-lender-confirm-dialog">
+                      <div className="vas-lender-confirm-icon" aria-hidden="true">
+                        ✓
+                      </div>
+                      <h2 id="lender-prolong-success-title" className="vas-lender-confirm-title">
+                        Pożyczkodawca potwierdził przedłużenie
+                      </h2>
+                      <p className="vas-lender-confirm-body">
+                        <strong>{LENDER.name}</strong> zaakceptował wykorzystanie punktów w programie
+                        lojalnościowym i potwierdził przedłużenie spłaty o{' '}
+                        <strong>{lenderPortalProlongSuccess.prolongDays} dni</strong> do dnia{' '}
+                        <strong>
+                          {formatDateOnly(lenderPortalProlongSuccess.repaymentDate)}
+                        </strong>
+                        . Wysłaliśmy potwierdzenie SMS-em i mailem.
+                      </p>
+                      <div className="vas-lender-confirm-actions">
+                        <button
+                          type="button"
+                          className="vas-btn vas-btn-primary vas-btn-block vas-lender-confirm-cta"
+                          onClick={() => setLenderPortalProlongSuccess(null)}
+                        >
+                          Wyluzuj się
+                        </button>
+                        <button
+                          type="button"
+                          className="vas-btn vas-btn-secondary vas-btn-block"
+                          onClick={returnToVasOffersFromLenderPortal}
+                        >
+                          Wróć do ofert produktów VAS
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
@@ -1899,13 +2001,13 @@ export default function App() {
 
               <div className="vas-card vas-card-elevated vas-mt-lg">
                 <div className="vas-card-head">
-                  <h2 className="vas-h2">Potwierdzenia przedłużenia (webhook)</h2>
+                  <h2 className="vas-h2">Potwierdzenia przedłużenia</h2>
                   <span className="vas-badge vas-badge-navy">Demo</span>
                 </div>
                 <p className="vas-muted vas-mb-md">
                   Po wykorzystaniu punktów na przedłużenie (7, 14 lub 30 dni) wniosek trafia do
-                  pożyczkodawcy. Gdy system pożyczkodawcy go zatwierdzi (symulacja webhooka),
-                  potwierdź tutaj — wtedy w portalu klienta pojawi się zaktualizowany termin spłaty.
+                  pożyczkodawcy. W portalu klienta potwierdzenie pojawia się automatycznie po kilku
+                  sekundach; tutaj możesz też ręcznie zatwierdzić oczekujący wniosek.
                 </p>
                 {pendingProlongationsAdmin.length === 0 ? (
                   <p className="vas-muted">Brak wniosków oczekujących na potwierdzenie.</p>
@@ -1932,7 +2034,7 @@ export default function App() {
                           className="vas-btn vas-btn-primary"
                           onClick={() => confirmProlongationByPlatform(row.id)}
                         >
-                          Potwierdź webhook pożyczkodawcy
+                          Potwierdź zatwierdzenie pożyczkodawcy
                         </button>
                       </li>
                     ))}
