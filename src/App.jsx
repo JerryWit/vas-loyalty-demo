@@ -421,7 +421,7 @@ export default function App() {
     if (!lenderPortalClient) return []
     return getPortalRedemptionRows({
       prolongationIds: LENDER_PORTAL_PROLONGATION_IDS,
-    })
+    }).filter((r) => r.allowed)
   }, [lenderPortalClient])
 
   const lenderPortalDaysLeft = lenderPortalClient
@@ -441,7 +441,7 @@ export default function App() {
     if (!sessionClient) return []
     return getPortalRedemptionRows({
       prolongationIds: LENDER_PORTAL_PROLONGATION_IDS,
-    })
+    }).filter((r) => r.allowed)
   }, [sessionClient])
 
   const clientPurchases = useMemo(() => {
@@ -1025,9 +1025,7 @@ export default function App() {
                               <span className="vas-cost-pill">{row.pointsCost} pkt</span>
                             </span>
                           </label>
-                          {!row.allowed ? (
-                            <p className="vas-lender-option-hint">{row.unavailableReason}</p>
-                          ) : !affordable ? (
+                          {!affordable ? (
                             <p className="vas-lender-option-hint">Za mało punktów na koncie.</p>
                           ) : null}
                         </li>
