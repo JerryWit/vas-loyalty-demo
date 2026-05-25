@@ -1307,9 +1307,13 @@ export default function App() {
                         <button
                           type="button"
                           className="vas-btn vas-btn-primary vas-btn-block vas-lender-confirm-cta"
-                          onClick={() => setLenderPortalProlongSuccess(null)}
+                          onClick={() => {
+                            setLenderPortalProlongSuccess(null)
+                            leaveLenderPortal()
+                            logoutClient()
+                          }}
                         >
-                          Wyluzuj się
+                          Wylogowanie
                         </button>
                         <button
                           type="button"
