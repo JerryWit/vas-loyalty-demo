@@ -1,25 +1,113 @@
-import { useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
-const LENDER_OPTIONS = ['KredytOK', 'Szybka Gotówka', 'PożyczkaPLUS']
+/** legalName — tylko do ewidencji demo; w UI pokazujemy wyłącznie brand. */
+const LENDER_BRANDS = [
+  { brand: 'KredytOK', legalName: 'Capital Service' },
+  { brand: 'Szybka Gotówka', legalName: 'Capital Service' },
+  { brand: 'PożyczkaPLUS', legalName: 'Funding Circle' },
+  { brand: 'ExpressLoan', legalName: 'Funding Circle' },
+  { brand: 'GotówkaNow', legalName: 'Profi Credit' },
+]
+
+const MIN_QUERY_LEN = 2
+
+function normalizeForMatch(s) {
+  return s.trim().toLowerCase()
+}
+
+function filterBrands(query) {
+  const q = normalizeForMatch(query)
+  if (q.length < MIN_QUERY_LEN) return []
+  return LENDER_BRANDS.filter((item) => normalizeForMatch(item.brand).includes(q))
+}
+
+function findBrandByName(name) {
+  const q = normalizeForMatch(name)
+  return LENDER_BRANDS.find((item) => normalizeForMatch(item.brand) === q) ?? null
+}
 
 export default function LoginSMS({ onLoginSuccess }) {
+  const listId = useId()
+  const lenderWrapRef = useRef(null)
+
   const [step, setStep] = useState(1)
-  const [lenderName, setLenderName] = useState('')
+  const [lenderInput, setLenderInput] = useState('')
+  const [selectedBrand, setSelectedBrand] = useState(null)
   const [loanNumber, setLoanNumber] = useState('')
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
+  const [highlightIndex, setHighlightIndex] = useState(-1)
+
+  const suggestions = useMemo(() => filterBrands(lenderInput), [lenderInput])
+
+  useEffect(() => {
+    setHighlightIndex(-1)
+  }, [lenderInput, suggestions.length])
+
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (lenderWrapRef.current && !lenderWrapRef.current.contains(e.target)) {
+        setSuggestionsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [])
+
+  const pickBrand = (brand) => {
+    setLenderInput(brand)
+    setSelectedBrand(brand)
+    setSuggestionsOpen(false)
+    setHighlightIndex(-1)
+    if (error) setError('')
+  }
+
+  const handleLenderChange = (e) => {
+    const value = e.target.value
+    setLenderInput(value)
+    setSelectedBrand(null)
+    const next = filterBrands(value)
+    setSuggestionsOpen(value.trim().length >= MIN_QUERY_LEN && next.length > 0)
+    if (error) setError('')
+  }
+
+  const handleLenderKeyDown = (e) => {
+    if (!suggestionsOpen || suggestions.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightIndex((i) => (i + 1) % suggestions.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1))
+    } else if (e.key === 'Enter' && highlightIndex >= 0) {
+      e.preventDefault()
+      pickBrand(suggestions[highlightIndex].brand)
+    } else if (e.key === 'Escape') {
+      setSuggestionsOpen(false)
+    }
+  }
+
+  const resolveBrand = () => {
+    if (selectedBrand) return findBrandByName(selectedBrand)
+    return findBrandByName(lenderInput)
+  }
 
   const handleSendSms = (e) => {
     e.preventDefault()
-    if (!lenderName.trim()) {
-      setError('Wybierz lub wpisz nazwę pożyczkodawcy.')
+    const brand = resolveBrand()
+    if (!brand) {
+      setError('Wybierz pożyczkodawcę z listy podpowiedzi (min. 2 znaki).')
       return
     }
     if (!loanNumber.trim()) {
       setError('Podaj numer pożyczki.')
       return
     }
+    setSelectedBrand(brand.brand)
+    setLenderInput(brand.brand)
     setError('')
+    setSuggestionsOpen(false)
     setStep(2)
   }
 
@@ -36,7 +124,11 @@ export default function LoginSMS({ onLoginSuccess }) {
       return
     }
     setError('')
-    onLoginSuccess({ lenderName: lenderName.trim(), loanNumber: loanNumber.trim() })
+    const brand = resolveBrand()
+    onLoginSuccess({
+      lenderName: brand?.brand ?? lenderInput.trim(),
+      loanNumber: loanNumber.trim(),
+    })
   }
 
   const handleBack = () => {
@@ -49,7 +141,7 @@ export default function LoginSMS({ onLoginSuccess }) {
     return (
       <div className="vas-login-sms">
         <p className="vas-login-sms-sent" role="status">
-          Kod wysłany na Twój numer telefonu
+          Kod został wysłany na Twój numer telefonu
         </p>
         <form className="vas-form vas-home-login-form" onSubmit={handleLogin}>
           <label htmlFor="login-sms-otp" className="vas-home-login-label">
@@ -99,26 +191,55 @@ export default function LoginSMS({ onLoginSuccess }) {
         <h3 id="login-sms-step1-heading" className="vas-home-login-label">
           Logowanie SMS
         </h3>
+
         <label htmlFor="login-sms-lender" className="vas-login-sms-label">
           Nazwa pożyczkodawcy
         </label>
-        <input
-          id="login-sms-lender"
-          className="vas-input vas-input-lg"
-          list="login-sms-lender-list"
-          placeholder="Wybierz lub wpisz"
-          value={lenderName}
-          onChange={(e) => {
-            setLenderName(e.target.value)
-            if (error) setError('')
-          }}
-          autoComplete="organization"
-        />
-        <datalist id="login-sms-lender-list">
-          {LENDER_OPTIONS.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
+        <div className="vas-lender-autocomplete" ref={lenderWrapRef}>
+          <input
+            id="login-sms-lender"
+            className="vas-input vas-input-lg"
+            type="text"
+            role="combobox"
+            aria-expanded={suggestionsOpen}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            placeholder="Zacznij wpisywać nazwę (min. 2 znaki)"
+            value={lenderInput}
+            onChange={handleLenderChange}
+            onFocus={() => {
+              if (
+                lenderInput.trim().length >= MIN_QUERY_LEN &&
+                suggestions.length > 0
+              ) {
+                setSuggestionsOpen(true)
+              }
+            }}
+            onKeyDown={handleLenderKeyDown}
+            autoComplete="off"
+          />
+          {suggestionsOpen && suggestions.length > 0 ? (
+            <ul id={listId} className="vas-lender-suggestions" role="listbox">
+              {suggestions.map((item, index) => (
+                <li key={item.brand} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={highlightIndex === index}
+                    className={`vas-lender-suggestion-item ${
+                      highlightIndex === index ? 'is-highlighted' : ''
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pickBrand(item.brand)}
+                  >
+                    {item.brand}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
         <label htmlFor="login-sms-loan" className="vas-login-sms-label">
           Numer pożyczki
         </label>
@@ -143,8 +264,8 @@ export default function LoginSMS({ onLoginSuccess }) {
           Wyślij kod SMS
         </button>
         <p className="vas-login-demo-hint vas-home-demo-hint">
-          Demo: pożyczkodawca z listy, numer <strong>SP-1001</strong> /{' '}
-          <strong>SP-1002</strong> / <strong>SP-1003</strong>
+          Demo: np. <strong>KredytOK</strong>, <strong>ExpressLoan</strong> · numer{' '}
+          <strong>SP-1001</strong> / <strong>SP-1002</strong> / <strong>SP-1003</strong>
         </p>
       </form>
     </div>

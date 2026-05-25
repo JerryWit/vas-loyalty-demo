@@ -227,6 +227,47 @@
   font-family: var(--vas-mono);
 }
 
+.vas-lender-autocomplete {
+  position: relative;
+}
+
+.vas-lender-suggestions {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  background: var(--vas-white);
+  border: 1px solid var(--vas-mist);
+  border-radius: var(--vas-radius-md);
+  box-shadow: var(--vas-card-shadow);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.vas-lender-suggestion-item {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vas-navy-900);
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.vas-lender-suggestion-item:hover,
+.vas-lender-suggestion-item.is-highlighted {
+  background: var(--vas-snow);
+  color: var(--vas-navy-800);
+}
+
 /* Legacy shell (unused in role split — kept for compatibility) */
 .vas-shell {
   flex: 1;
