@@ -2171,6 +2171,47 @@
   box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.08), var(--vas-card-shadow);
 }
 
+.vas-lender-loan-status.is-pending {
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.08), var(--vas-card-shadow);
+}
+
+.vas-lender-pending-body {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--vas-ink);
+}
+
+.vas-lender-pending-date {
+  margin-bottom: 12px;
+}
+
+.vas-lender-pending-meta {
+  margin: 0;
+}
+
+.vas-pending-prolong-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vas-pending-prolong-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--vas-radius-md);
+  border: 1px solid var(--vas-border);
+  background: var(--vas-surface);
+}
+
 .vas-lender-status-eyebrow {
   font-size: 12px;
   font-weight: 700;
@@ -2233,10 +2274,6 @@
   font-size: 14px;
   line-height: 1.5;
   color: #14532d;
-}
-
-.vas-lender-repay-hint {
-  margin-top: 4px;
 }
 
 .vas-lender-api-row {

@@ -302,6 +302,23 @@ function daysFromVisitToRepayment(client, visitAtIso, extraDays = 0) {
   return Math.max(0, Math.ceil((repay - visit) / 86400000))
 }
 
+function getLatestPendingProlongation(redemptions, clientId) {
+  return (
+    redemptions
+      .filter(
+        (r) =>
+          r.clientId === clientId &&
+          r.prolongStatus === 'pending' &&
+          (r.prolongDays ?? 0) > 0,
+      )
+      .sort((a, b) => new Date(b.at) - new Date(a.at))[0] ?? null
+  )
+}
+
+function isProlongationCatalogId(catalogId) {
+  return (PROLONGATION_DAYS_BY_CATALOG[catalogId] ?? 0) > 0
+}
+
 function getPortalRedemptionRows({ prolongationIds = ['r1', 'r2', 'r3'] } = {}) {
   const alwaysIds = ['r4', 'r5']
   const prolongIds = ['r1', 'r2', 'r3']
@@ -417,12 +434,49 @@ export default function App() {
     ? pointsByClient[lenderPortalClient.id] ?? lenderPortalClient.basePoints
     : 0
 
+  const lenderPortalPendingProlong = useMemo(() => {
+    if (!lenderPortalClient) return null
+    return getLatestPendingProlongation(lenderRedemptions, lenderPortalClient.id)
+  }, [lenderPortalClient, lenderRedemptions])
+
+  const lenderPortalPendingRepaymentDate = useMemo(() => {
+    if (!lenderPortalClient || !lenderPortalPendingProlong) return null
+    return getRepaymentDate(
+      lenderPortalClient,
+      (repaymentExtraDays[lenderPortalClient.id] ?? 0) +
+        lenderPortalPendingProlong.prolongDays,
+    )
+  }, [lenderPortalClient, lenderPortalPendingProlong, repaymentExtraDays])
+
   const portalRedemptionRows = useMemo(() => {
     if (!lenderPortalClient) return []
-    return getPortalRedemptionRows({
+    const rows = getPortalRedemptionRows({
       prolongationIds: LENDER_PORTAL_PROLONGATION_IDS,
     }).filter((r) => r.allowed)
-  }, [lenderPortalClient])
+    if (lenderPortalPendingProlong) {
+      return rows.filter((r) => !isProlongationCatalogId(r.id))
+    }
+    return rows
+  }, [lenderPortalClient, lenderPortalPendingProlong])
+
+  const pendingProlongationsAdmin = useMemo(
+    () =>
+      lenderRedemptions
+        .filter((r) => r.prolongStatus === 'pending' && (r.prolongDays ?? 0) > 0)
+        .map((r) => {
+          const client = BASE_CLIENTS.find((c) => c.id === r.clientId)
+          const extra = repaymentExtraDays[r.clientId] ?? 0
+          return {
+            ...r,
+            client,
+            newRepaymentDate: client
+              ? getRepaymentDate(client, extra + r.prolongDays)
+              : null,
+          }
+        })
+        .sort((a, b) => new Date(b.at) - new Date(a.at)),
+    [lenderRedemptions, repaymentExtraDays],
+  )
 
   const lenderPortalDaysLeft = lenderPortalClient
     ? daysFromVisitToRepayment(
@@ -720,13 +774,32 @@ export default function App() {
 
   /** Demo: symulacja potwierdzenia wykorzystania punktów przez API pożyczkodawcy. */
   const confirmRedemptionViaLenderApi = (clientId, catalogId, options = {}) => {
-    const { silent = false } = options
+    const { silent = false, channel = 'api' } = options
     const option = LENDER_POINTS_CATALOG.find((o) => o.id === catalogId)
     const client = BASE_CLIENTS.find((c) => c.id === clientId)
     if (!option || !client) return false
-    const row = getPortalRedemptionRows({
-      prolongationIds: LENDER_PORTAL_PROLONGATION_IDS,
-    }).find((r) => r.id === catalogId)
+
+    const prolongDays = PROLONGATION_DAYS_BY_CATALOG[catalogId] ?? 0
+    if (prolongDays > 0) {
+      const pending = getLatestPendingProlongation(lenderRedemptions, clientId)
+      if (pending) {
+        if (!silent) {
+          showToast(
+            'Oczekuje potwierdzenia wcześniejszego wniosku o przedłużenie.',
+            'warn',
+          )
+        }
+        return false
+      }
+    }
+
+    const prolongationIds =
+      channel === 'portal'
+        ? LENDER_PORTAL_PROLONGATION_IDS
+        : ['r1', 'r2', 'r3']
+    const row = getPortalRedemptionRows({ prolongationIds }).find(
+      (r) => r.id === catalogId,
+    )
     if (row && !row.allowed) {
       if (!silent) showToast('Opcja niedostępna w tym kanale.', 'warn')
       return false
@@ -741,15 +814,20 @@ export default function App() {
       }
       return false
     }
+
+    const redemptionId = uid()
     setLenderRedemptions((prev) => [
       {
-        id: uid(),
+        id: redemptionId,
         clientId,
+        catalogId,
         points: option.pointsCost,
         lenderName: LENDER.name,
         optionLabel: option.label,
         at: new Date().toISOString(),
         source: 'lender_api_confirm',
+        prolongDays: prolongDays > 0 ? prolongDays : undefined,
+        prolongStatus: prolongDays > 0 ? 'pending' : undefined,
       },
       ...prev,
     ])
@@ -757,18 +835,47 @@ export default function App() {
       ...prev,
       [clientId]: (prev[clientId] ?? client.basePoints) - option.pointsCost,
     }))
-    const prolongDays = PROLONGATION_DAYS_BY_CATALOG[catalogId] ?? 0
-    if (prolongDays > 0) {
-      setRepaymentExtraDays((prev) => ({
-        ...prev,
-        [clientId]: (prev[clientId] ?? 0) + prolongDays,
-      }))
-    }
+
     if (!silent) {
-      showToast(
-        `API: zapisano wykorzystanie ${option.pointsCost} pkt — ${client.name}.`,
-      )
+      if (prolongDays > 0) {
+        showToast(
+          `Wniosek o przedłużenie (${prolongDays} dni) wysłany do ${LENDER.name} — oczekuje potwierdzenia (demo).`,
+        )
+      } else {
+        showToast(
+          `API: zapisano wykorzystanie ${option.pointsCost} pkt — ${client.name}.`,
+        )
+      }
     }
+    return true
+  }
+
+  /** Demo: webhook pożyczkodawcy → platforma zatwierdza przedłużenie w umowie. */
+  const confirmProlongationByPlatform = (redemptionId) => {
+    const entry = lenderRedemptions.find((r) => r.id === redemptionId)
+    if (!entry || entry.prolongStatus !== 'pending' || !(entry.prolongDays > 0)) {
+      showToast('Brak oczekującego wniosku o przedłużenie.', 'warn')
+      return false
+    }
+    const client = BASE_CLIENTS.find((c) => c.id === entry.clientId)
+    if (!client) return false
+
+    setLenderRedemptions((prev) =>
+      prev.map((r) =>
+        r.id === redemptionId ? { ...r, prolongStatus: 'confirmed' } : r,
+      ),
+    )
+    setRepaymentExtraDays((prev) => ({
+      ...prev,
+      [entry.clientId]: (prev[entry.clientId] ?? 0) + entry.prolongDays,
+    }))
+    const newDate = getRepaymentDate(
+      client,
+      (repaymentExtraDays[entry.clientId] ?? 0) + entry.prolongDays,
+    )
+    showToast(
+      `Webhook: ${LENDER.name} zatwierdził przedłużenie — spłata do ${formatDateOnly(newDate)} (demo).`,
+    )
     return true
   }
 
@@ -777,14 +884,21 @@ export default function App() {
       showToast('Wybierz opcję wykorzystania punktów.', 'warn')
       return
     }
+    const isProlong = isProlongationCatalogId(lenderPortalSelectedId)
     const ok = confirmRedemptionViaLenderApi(
       lenderPortalClient.id,
       lenderPortalSelectedId,
-      { silent: true },
+      { silent: true, channel: 'portal' },
     )
     if (ok) {
       setLenderPortalSelectedId('')
-      showToast('Wykorzystano punkty. Zmiana warunków zapisana w umowie (demo).')
+      if (isProlong) {
+        showToast(
+          'Wniosek o przedłużenie wysłany do pożyczkodawcy. Termin spłaty zaktualizuje się po potwierdzeniu (demo).',
+        )
+      } else {
+        showToast('Wykorzystano punkty (demo).')
+      }
     }
   }
 
@@ -937,51 +1051,81 @@ export default function App() {
               </section>
             ) : (
               <>
-                <section
-                  className={`vas-lender-portal-card vas-lender-loan-status ${
-                    lenderPortalDaysLeft < 7 ? 'is-urgent' : ''
-                  }`}
-                >
-                  <div className="vas-lender-status-eyebrow">Status pożyczki</div>
-                  <h1 className="vas-lender-status-title">Pożyczka wymaga spłaty</h1>
-                  <p className="vas-lender-status-lead">
-                    {lenderPortalClient.name} ·{' '}
-                    <span className="vas-mono-strong">{lenderPortalClient.loanNumber}</span>
-                  </p>
-                  <div className="vas-lender-status-grid">
-                    <div>
-                      <span className="vas-muted vas-text-sm">Termin spłaty</span>
+                {lenderPortalPendingProlong ? (
+                  <section
+                    className="vas-lender-portal-card vas-lender-loan-status is-pending"
+                    role="status"
+                  >
+                    <div className="vas-lender-status-eyebrow">Status pożyczki</div>
+                    <h1 className="vas-lender-status-title">Wniosek o przedłużenie w realizacji</h1>
+                    <p className="vas-lender-status-lead">
+                      {lenderPortalClient.name} ·{' '}
+                      <span className="vas-mono-strong">{lenderPortalClient.loanNumber}</span>
+                    </p>
+                    <p className="vas-lender-pending-body">
+                      Pożyczka została przedłużona w programie lojalnościowym. Wniosek został
+                      wysłany do <strong>{LENDER.name}</strong> i oczekuje na potwierdzenie w systemie
+                      pożyczkodawcy (webhook).
+                    </p>
+                    <div className="vas-lender-pending-date">
+                      <span className="vas-muted vas-text-sm">Spłata po zatwierdzeniu wniosku</span>
                       <div className="vas-lender-status-value">
-                        {lenderPortalRepaymentDate
-                          ? formatDateOnly(lenderPortalRepaymentDate)
+                        {lenderPortalPendingRepaymentDate
+                          ? formatDateOnly(lenderPortalPendingRepaymentDate)
                           : '—'}
                       </div>
                     </div>
-                    <div>
-                      <span className="vas-muted vas-text-sm">Dni do spłaty (od dziś)</span>
-                      <div
-                        className={`vas-lender-status-value ${
-                          lenderPortalDaysLeft < 7 ? 'vas-lender-days-urgent' : ''
-                        }`}
-                      >
-                        {lenderPortalDaysLeft} dni
+                    <p className="vas-muted vas-text-sm vas-lender-pending-meta">
+                      Przedłużenie o <strong>{lenderPortalPendingProlong.prolongDays} dni</strong> ·{' '}
+                      {lenderPortalPendingProlong.optionLabel} · złożono{' '}
+                      {formatDate(lenderPortalPendingProlong.at)}
+                    </p>
+                  </section>
+                ) : (
+                  <section
+                    className={`vas-lender-portal-card vas-lender-loan-status ${
+                      lenderPortalDaysLeft < 7 ? 'is-urgent' : ''
+                    }`}
+                  >
+                    <div className="vas-lender-status-eyebrow">Status pożyczki</div>
+                    <h1 className="vas-lender-status-title">Pożyczka wymaga spłaty</h1>
+                    <p className="vas-lender-status-lead">
+                      {lenderPortalClient.name} ·{' '}
+                      <span className="vas-mono-strong">{lenderPortalClient.loanNumber}</span>
+                    </p>
+                    <div className="vas-lender-status-grid">
+                      <div>
+                        <span className="vas-muted vas-text-sm">Termin spłaty</span>
+                        <div className="vas-lender-status-value">
+                          {lenderPortalRepaymentDate
+                            ? formatDateOnly(lenderPortalRepaymentDate)
+                            : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="vas-muted vas-text-sm">Dni do spłaty (od dziś)</span>
+                        <div
+                          className={`vas-lender-status-value ${
+                            lenderPortalDaysLeft < 7 ? 'vas-lender-days-urgent' : ''
+                          }`}
+                        >
+                          {lenderPortalDaysLeft} dni
+                        </div>
+                      </div>
+                      <div>
+                        <span className="vas-muted vas-text-sm">Kwota do spłaty</span>
+                        <div className="vas-lender-status-value">
+                          {formatMoney(getRepaymentAmountPln(lenderPortalClient))}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <span className="vas-muted vas-text-sm">Kwota do spłaty</span>
-                      <div className="vas-lender-status-value">
-                        {formatMoney(getRepaymentAmountPln(lenderPortalClient))}
-                      </div>
-                      <div className="vas-muted vas-text-sm vas-lender-repay-hint">
-                        Kwota pożyczki + 15%
-                      </div>
+                    <div className="vas-lender-calm-note" role="status">
+                      Punkty możesz wykorzystać m.in. na{' '}
+                      <strong>przedłużenie spłaty o 14 lub 30 dni</strong> — niezależnie od liczby
+                      dni do terminu spłaty.
                     </div>
-                  </div>
-                  <div className="vas-lender-calm-note" role="status">
-                    Punkty możesz wykorzystać m.in. na <strong>przedłużenie spłaty o 14 lub 30 dni</strong>
-                    — niezależnie od liczby dni do terminu spłaty.
-                  </div>
-                </section>
+                  </section>
+                )}
 
                 <section className="vas-lender-portal-card">
                   <div className="vas-lender-api-row">
@@ -1000,6 +1144,12 @@ export default function App() {
 
                 <section className="vas-lender-portal-card">
                   <h2 className="vas-h3 vas-mb-md">Wykorzystaj punkty</h2>
+                  {lenderPortalPendingProlong ? (
+                    <p className="vas-info-callout vas-mb-md" role="note">
+                      Kolejne przedłużenie będzie możliwe po potwierdzeniu bieżącego wniosku przez
+                      system pożyczkodawcy.
+                    </p>
+                  ) : null}
                   <ul className="vas-lender-option-list">
                     {portalRedemptionRows.map((row) => {
                       const affordable = lenderPortalPoints >= row.pointsCost
@@ -1696,10 +1846,9 @@ export default function App() {
                       value={lenderApiDemoOptionId}
                       onChange={(e) => setLenderApiDemoOptionId(e.target.value)}
                     >
-                      {LENDER_POINTS_CATALOG.filter((o) =>
-                        LENDER_PORTAL_PROLONGATION_IDS.includes(o.id) ||
-                        o.id === 'r4' ||
-                        o.id === 'r5',
+                      {LENDER_POINTS_CATALOG.filter(
+                        (o) =>
+                          isProlongationCatalogId(o.id) || o.id === 'r4' || o.id === 'r5',
                       ).map((o) => (
                         <option key={o.id} value={o.id}>
                           {o.label} — {o.pointsCost} pkt
@@ -1746,6 +1895,49 @@ export default function App() {
                     {LENDER.name}), aktywność klientów i rozliczenia (demo jednego partnera).
                   </p>
                 </div>
+              </div>
+
+              <div className="vas-card vas-card-elevated vas-mt-lg">
+                <div className="vas-card-head">
+                  <h2 className="vas-h2">Potwierdzenia przedłużenia (webhook)</h2>
+                  <span className="vas-badge vas-badge-navy">Demo</span>
+                </div>
+                <p className="vas-muted vas-mb-md">
+                  Po wykorzystaniu punktów na przedłużenie (7, 14 lub 30 dni) wniosek trafia do
+                  pożyczkodawcy. Gdy system pożyczkodawcy go zatwierdzi (symulacja webhooka),
+                  potwierdź tutaj — wtedy w portalu klienta pojawi się zaktualizowany termin spłaty.
+                </p>
+                {pendingProlongationsAdmin.length === 0 ? (
+                  <p className="vas-muted">Brak wniosków oczekujących na potwierdzenie.</p>
+                ) : (
+                  <ul className="vas-pending-prolong-list">
+                    {pendingProlongationsAdmin.map((row) => (
+                      <li key={row.id} className="vas-pending-prolong-item">
+                        <div>
+                          <strong>{row.client?.name ?? row.clientId}</strong>
+                          <span className="vas-muted vas-text-sm">
+                            {' '}
+                            · {row.client?.loanNumber} · +{row.prolongDays} dni ·{' '}
+                            {formatDate(row.at)}
+                          </span>
+                          {row.newRepaymentDate ? (
+                            <div className="vas-text-sm vas-mt-sm">
+                              Termin spłaty po zatwierdzeniu:{' '}
+                              <strong>{formatDateOnly(row.newRepaymentDate)}</strong>
+                            </div>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          className="vas-btn vas-btn-primary"
+                          onClick={() => confirmProlongationByPlatform(row.id)}
+                        >
+                          Potwierdź webhook pożyczkodawcy
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="vas-card vas-card-elevated vas-admin-config-cta">
