@@ -21,7 +21,6 @@ const BASE_CLIENTS = [
     basePoints: 120,
     /** Dni do terminu spłaty (demo, liczone od dziś). */
     repaymentDaysFromToday: 5,
-    nextInstallmentPln: 420,
   },
   {
     id: 'c2',
@@ -30,7 +29,6 @@ const BASE_CLIENTS = [
     loanAmount: 1800,
     basePoints: 60,
     repaymentDaysFromToday: 12,
-    nextInstallmentPln: 310,
   },
   {
     id: 'c3',
@@ -39,9 +37,16 @@ const BASE_CLIENTS = [
     loanAmount: 3200,
     basePoints: 0,
     repaymentDaysFromToday: 3,
-    nextInstallmentPln: 540,
   },
 ]
+
+/** Kwota do spłaty = kwota pożyczki + 15% (demo). */
+function getRepaymentAmountPln(client) {
+  return Math.round(client.loanAmount * 1.15)
+}
+
+/** W portalu pożyczkodawcy: tylko przedłużenia 14 i 30 dni (7 dni konfigurowane w panelu admin). */
+const LENDER_PORTAL_PROLONGATION_IDS = ['r2', 'r3']
 
 const PROLONGATION_DAYS_BY_CATALOG = {
   r1: 7,
@@ -297,11 +302,7 @@ function daysFromVisitToRepayment(client, visitAtIso, extraDays = 0) {
   return Math.max(0, Math.ceil((repay - visit) / 86400000))
 }
 
-/** <7 dni od wizyty w portalu do spłaty → przedłużenia 14 i 30 dni; w przeciwnym razie 7 dni. */
-function getPortalRedemptionRows(client, visitAtIso, extraDays = 0) {
-  const daysLeft = daysFromVisitToRepayment(client, visitAtIso, extraDays)
-  const urgent = daysLeft < 7
-  const prolongationIds = urgent ? ['r2', 'r3'] : ['r1']
+function getPortalRedemptionRows({ prolongationIds = ['r1', 'r2', 'r3'] } = {}) {
   const alwaysIds = ['r4', 'r5']
   const prolongIds = ['r1', 'r2', 'r3']
 
@@ -310,13 +311,7 @@ function getPortalRedemptionRows(client, visitAtIso, extraDays = 0) {
     const allowed = isProlongation
       ? prolongationIds.includes(item.id)
       : alwaysIds.includes(item.id)
-    let unavailableReason = null
-    if (!allowed && isProlongation) {
-      unavailableReason = urgent
-        ? 'Przy terminie poniżej 7 dni dostępne są wyłącznie przedłużenia o 14 i 30 dni.'
-        : 'Przy terminie 7 dni lub dłużej dostępne jest przedłużenie o 7 dni (opcje 14/30 po wejściu w okno pilne).'
-    }
-    return { ...item, allowed, unavailableReason, daysLeft, urgent }
+    return { ...item, allowed }
   })
 }
 
@@ -423,13 +418,11 @@ export default function App() {
     : 0
 
   const portalRedemptionRows = useMemo(() => {
-    if (!lenderPortalClient || !lenderPortalVisitAt) return []
-    return getPortalRedemptionRows(
-      lenderPortalClient,
-      lenderPortalVisitAt,
-      lenderPortalExtra,
-    )
-  }, [lenderPortalClient, lenderPortalVisitAt, lenderPortalExtra])
+    if (!lenderPortalClient) return []
+    return getPortalRedemptionRows({
+      prolongationIds: LENDER_PORTAL_PROLONGATION_IDS,
+    })
+  }, [lenderPortalClient])
 
   const lenderPortalDaysLeft = lenderPortalClient
     ? daysFromVisitToRepayment(
@@ -443,10 +436,12 @@ export default function App() {
     ? getRepaymentDate(lenderPortalClient, lenderPortalExtra)
     : null
 
-  /** Kalkulator VAS: tylko czy stać na koszt w punktach (bez reguł portalu pożyczkodawcy). */
+  /** Kalkulator VAS: prolongaty 14 i 30 dni (jak w portalu pożyczkodawcy). */
   const clientCalculatorRows = useMemo(() => {
     if (!sessionClient) return []
-    return LENDER_POINTS_CATALOG
+    return getPortalRedemptionRows({
+      prolongationIds: LENDER_PORTAL_PROLONGATION_IDS,
+    })
   }, [sessionClient])
 
   const clientPurchases = useMemo(() => {
@@ -729,13 +724,11 @@ export default function App() {
     const option = LENDER_POINTS_CATALOG.find((o) => o.id === catalogId)
     const client = BASE_CLIENTS.find((c) => c.id === clientId)
     if (!option || !client) return false
-    const extra = repaymentExtraDays[clientId] ?? 0
-    const visitAt = lenderPortalVisitAt ?? new Date().toISOString()
-    const row = getPortalRedemptionRows(client, visitAt, extra).find(
-      (r) => r.id === catalogId,
-    )
+    const row = getPortalRedemptionRows({
+      prolongationIds: LENDER_PORTAL_PROLONGATION_IDS,
+    }).find((r) => r.id === catalogId)
     if (row && !row.allowed) {
-      if (!silent) showToast(row.unavailableReason ?? 'Opcja niedostępna.', 'warn')
+      if (!silent) showToast('Opcja niedostępna w tym kanale.', 'warn')
       return false
     }
     const bal = pointsByClient[clientId] ?? client.basePoints
@@ -975,24 +968,19 @@ export default function App() {
                       </div>
                     </div>
                     <div>
-                      <span className="vas-muted vas-text-sm">Kwota najbliższej raty</span>
+                      <span className="vas-muted vas-text-sm">Kwota do spłaty</span>
                       <div className="vas-lender-status-value">
-                        {formatMoney(lenderPortalClient.nextInstallmentPln)}
+                        {formatMoney(getRepaymentAmountPln(lenderPortalClient))}
+                      </div>
+                      <div className="vas-muted vas-text-sm vas-lender-repay-hint">
+                        Kwota pożyczki + 15%
                       </div>
                     </div>
                   </div>
-                  {lenderPortalDaysLeft < 7 ? (
-                    <div className="vas-lender-urgent-note" role="status">
-                      Do terminu spłaty zostało mniej niż 7 dni — możesz skorzystać z przedłużenia
-                      o <strong>14 lub 30 dni</strong> za punkty (oraz z innych benefitów
-                      niefinansujących terminu).
-                    </div>
-                  ) : (
-                    <div className="vas-lender-calm-note" role="status">
-                      Do terminu spłaty zostało {lenderPortalDaysLeft} dni — dostępne jest
-                      przedłużenie raty o <strong>7 dni</strong> za punkty.
-                    </div>
-                  )}
+                  <div className="vas-lender-calm-note" role="status">
+                    Punkty możesz wykorzystać m.in. na <strong>przedłużenie spłaty o 14 lub 30 dni</strong>
+                    — niezależnie od liczby dni do terminu spłaty.
+                  </div>
                 </section>
 
                 <section className="vas-lender-portal-card">
@@ -1408,8 +1396,8 @@ export default function App() {
                 </div>
                 <p className="vas-muted vas-text-sm vas-mt-sm">
                   Tabela ma charakter wyłącznie informacyjny — pokazuje, czy stać Cię na koszt w
-                  punktach. Które opcje są dostępne w portalu pożyczkodawcy zależy od terminu spłaty
-                  pożyczki.
+                  punktach. W portalu pożyczkodawcy dostępne są przedłużenia o 14 i 30 dni (bez
+                  względu na termin spłaty).
                 </p>
                 <button
                   type="button"
@@ -1710,7 +1698,11 @@ export default function App() {
                       value={lenderApiDemoOptionId}
                       onChange={(e) => setLenderApiDemoOptionId(e.target.value)}
                     >
-                      {LENDER_POINTS_CATALOG.map((o) => (
+                      {LENDER_POINTS_CATALOG.filter((o) =>
+                        LENDER_PORTAL_PROLONGATION_IDS.includes(o.id) ||
+                        o.id === 'r4' ||
+                        o.id === 'r5',
+                      ).map((o) => (
                         <option key={o.id} value={o.id}>
                           {o.label} — {o.pointsCost} pkt
                         </option>

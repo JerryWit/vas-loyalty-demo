@@ -2235,6 +2235,10 @@
   color: #14532d;
 }
 
+.vas-lender-repay-hint {
+  margin-top: 4px;
+}
+
 .vas-lender-api-row {
   display: flex;
   flex-wrap: wrap;

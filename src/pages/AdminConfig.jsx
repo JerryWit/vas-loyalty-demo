@@ -27,6 +27,7 @@ function buildProducts(overrides) {
 
 function buildBenefits(overrides) {
   const base = {
+    prolong7: { active: true, points: 70 },
     prolong14: { active: true, points: 120 },
     prolong30: { active: true, points: 180 },
     partialPayment: { active: true, points: 95 },
@@ -46,6 +47,7 @@ const DEFAULT_LENDER_CONFIGS = {
       home: { active: true, price: 59, points: 6 },
     }),
     benefits: buildBenefits({
+      prolong7: { active: true, points: 65 },
       prolong14: { active: true, points: 110 },
       prolong30: { active: true, points: 170 },
       partialPayment: { active: true, points: 90 },
@@ -62,6 +64,7 @@ const DEFAULT_LENDER_CONFIGS = {
       home: { active: false, price: 55, points: 6 },
     }),
     benefits: buildBenefits({
+      prolong7: { active: false, points: 60 },
       prolong14: { active: true, points: 100 },
       prolong30: { active: false, points: 160 },
       partialPayment: { active: true, points: 85 },
@@ -78,6 +81,7 @@ const DEFAULT_LENDER_CONFIGS = {
       home: { active: true, price: 65, points: 7 },
     }),
     benefits: buildBenefits({
+      prolong7: { active: true, points: 75 },
       prolong14: { active: true, points: 130 },
       prolong30: { active: true, points: 200 },
       partialPayment: { active: false, points: 100 },
@@ -331,6 +335,34 @@ export default function AdminConfig() {
                 </tr>
               </thead>
               <tbody>
+                <tr>
+                  <td>Prolongata 7 dni</td>
+                  <td>
+                    <label className="admin-config-benefit-check">
+                      <input
+                        type="checkbox"
+                        checked={current.benefits.prolong7.active}
+                        onChange={(e) =>
+                          updateBenefit('prolong7', { active: e.target.checked })
+                        }
+                      />
+                      Tak
+                    </label>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={current.benefits.prolong7.points}
+                      disabled={!current.benefits.prolong7.active}
+                      onChange={(e) =>
+                        updateBenefit('prolong7', {
+                          points: Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                    />
+                  </td>
+                </tr>
                 <tr>
                   <td>Prolongata 14 dni</td>
                   <td>
