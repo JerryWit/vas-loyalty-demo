@@ -1671,6 +1671,25 @@
 }
 
 /* Footer */
+.vas-admin-config-link {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.vas-admin-config-cta {
+  margin-bottom: 24px;
+}
+
+.vas-footer-admin-link {
+  color: var(--vas-navy-700);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.vas-footer-admin-link:hover {
+  text-decoration: underline;
+}
+
 .vas-footer {
   padding: 16px 22px 22px;
   text-align: center;

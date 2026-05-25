@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import './AdminConfig.css'
 
 const LENDERS = ['KredytOK', 'Szybka Gotówka', 'PożyczkaPLUS']
@@ -235,6 +236,9 @@ export default function AdminConfig() {
             </li>
           </ul>
           <div className="admin-config-sidebar-foot">
+            <Link to="/" className="admin-config-back-demo">
+              ← Demo VAS Loyalty
+            </Link>
             <button type="button" className="admin-config-logout" onClick={handleLogout}>
               Wyloguj
             </button>

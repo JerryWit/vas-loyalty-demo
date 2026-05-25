@@ -185,6 +185,26 @@
 .admin-config-sidebar-foot {
   padding: 16px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-config-back-demo {
+  display: block;
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9fb0c3;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.admin-config-back-demo:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .admin-config-logout {

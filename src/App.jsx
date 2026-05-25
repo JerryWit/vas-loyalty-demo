@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import LoginSMS from './components/LoginSMS.jsx'
 import './App.css'
 
@@ -893,6 +894,9 @@ export default function App() {
               Wyloguj
             </button>
           ) : null}
+          <Link to="/admin" className="vas-btn vas-btn-ghost vas-admin-config-link">
+            Konfiguracja LoyalVAS
+          </Link>
           <button type="button" className="vas-btn vas-btn-ghost" onClick={resetDemo}>
             Reset demo
           </button>
@@ -1754,6 +1758,24 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="vas-card vas-card-elevated vas-admin-config-cta">
+                <div className="vas-card-head">
+                  <h2 className="vas-h2">Panel konfiguracji pożyczkodawców</h2>
+                  <span className="vas-badge vas-badge-navy">LoyalVAS</span>
+                </div>
+                <p className="vas-muted vas-mb-md">
+                  Ustawienia produktów VAS, cen, punktów za zakup i przelicznika korzyści (KredytOK,
+                  Szybka Gotówka, PożyczkaPLUS) są w <strong>osobnym panelu administracyjnym</strong>
+                  — nie w tym widoku raportowym.
+                </p>
+                <Link to="/admin" className="vas-btn vas-btn-primary">
+                  Otwórz konfigurację → /admin
+                </Link>
+                <p className="vas-login-demo-hint vas-mt-sm">
+                  Logowanie do panelu: <strong>admin</strong> / hasło <strong>demo</strong>
+                </p>
+              </div>
+
               <div className="vas-kpi-grid">
                 <article className="vas-kpi vas-kpi-accent">
                   <div className="vas-kpi-label">Całkowita sprzedaż VAS</div>
@@ -1906,6 +1928,12 @@ export default function App() {
           ·
         </span>
         <span>Trzy oddzielne widoki: Portal Klienta · Panel Pożyczkodawcy · Admin Platformy</span>
+        <span className="vas-footer-dot" aria-hidden>
+          ·
+        </span>
+        <Link to="/admin" className="vas-footer-admin-link">
+          Konfiguracja LoyalVAS (/admin)
+        </Link>
       </footer>
 
       {toast ? (
