@@ -861,32 +861,28 @@ export default function App() {
           </nav>
         ) : null}
         <div className="vas-topbar-actions">
-          <div
-            className="vas-login-mode-toggle"
-            role="group"
-            aria-label="Tryb logowania"
-          >
-            <button
-              type="button"
-              className={`vas-login-mode-btn ${loginMode === 'loan' ? 'is-active' : ''}`}
-              onClick={() => {
-                setLoginMode('loan')
-                setLoginError('')
-              }}
+          {role === 'client' && !clientSessionId ? (
+            <div
+              className="vas-login-mode-toggle"
+              role="group"
+              aria-label="Tryb logowania"
             >
-              Logowanie: Pożyczka
-            </button>
-            <button
-              type="button"
-              className={`vas-login-mode-btn ${loginMode === 'sms' ? 'is-active' : ''}`}
-              onClick={() => {
-                setLoginMode('sms')
-                setLoginError('')
-              }}
-            >
-              Logowanie: SMS
-            </button>
-          </div>
+              <button
+                type="button"
+                className={`vas-login-mode-btn ${loginMode === 'loan' ? 'is-active' : ''}`}
+                onClick={() => setLoginMode('loan')}
+              >
+                Logowanie: Pożyczka
+              </button>
+              <button
+                type="button"
+                className={`vas-login-mode-btn ${loginMode === 'sms' ? 'is-active' : ''}`}
+                onClick={() => setLoginMode('sms')}
+              >
+                Logowanie: SMS
+              </button>
+            </div>
+          ) : null}
           {role === 'client' && clientScreen === 'lender-portal' ? (
             <button type="button" className="vas-btn vas-btn-ghost" onClick={leaveLenderPortal}>
               ← Program VAS
@@ -1157,7 +1153,7 @@ export default function App() {
                     </p>
                   ) : null}
                   <LoginSMS
-                    key="home-sms-login"
+                    key="sms"
                     onLoginSuccess={handleSmsLoginSuccess}
                   />
                 </>
