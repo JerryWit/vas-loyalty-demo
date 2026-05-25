@@ -331,9 +331,16 @@ export default function AdminConfig() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>Prolongata 14 dni</td>
-                  <td>—</td>
+                <tr className="admin-config-benefit-row-mandatory">
+                  <td>
+                    Prolongata 14 dni{' '}
+                    <span className="admin-config-benefit-mandatory">(obowiązkowa)</span>
+                  </td>
+                  <td>
+                    <span className="admin-config-benefit-always" aria-hidden>
+                      Zawsze aktywna
+                    </span>
+                  </td>
                   <td>
                     <input
                       type="number"
@@ -347,9 +354,16 @@ export default function AdminConfig() {
                     />
                   </td>
                 </tr>
-                <tr>
-                  <td>Prolongata 30 dni</td>
-                  <td>—</td>
+                <tr className="admin-config-benefit-row-mandatory">
+                  <td>
+                    Prolongata 30 dni{' '}
+                    <span className="admin-config-benefit-mandatory">(obowiązkowa)</span>
+                  </td>
+                  <td>
+                    <span className="admin-config-benefit-always" aria-hidden>
+                      Zawsze aktywna
+                    </span>
+                  </td>
                   <td>
                     <input
                       type="number"
