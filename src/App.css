@@ -192,6 +192,41 @@
   color: var(--vas-white);
 }
 
+.vas-login-sms {
+  width: 100%;
+}
+
+.vas-login-sms-label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vas-ink);
+}
+
+.vas-login-sms-label:first-of-type {
+  margin-top: 0;
+}
+
+.vas-login-sms-sent {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--vas-radius-sm);
+  background: var(--vas-green-soft);
+  border: 1px solid var(--vas-green-border);
+  color: var(--vas-navy-900);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.vas-login-sms-otp {
+  text-align: center;
+  letter-spacing: 0.35em;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--vas-mono);
+}
+
 /* Legacy shell (unused in role split — kept for compatibility) */
 .vas-shell {
   flex: 1;

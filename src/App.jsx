@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import LoginSMS from './components/LoginSMS.jsx'
 import './App.css'
 
 const STORAGE_KEY = 'vas-eksprespozyczka-demo-v1'
@@ -636,6 +637,29 @@ export default function App() {
     showToast(`Witaj, ${found.name.split(' ')[0]}.`)
   }
 
+  const handleSmsLoginSuccess = ({ loanNumber }) => {
+    const norm = loanNumber.trim().toUpperCase()
+    const found = BASE_CLIENTS.find(
+      (c) => c.loanNumber.toUpperCase() === norm,
+    )
+    if (!found) {
+      setLoginError(
+        'Nieprawidłowy numer pożyczki. Sprawdź dane i spróbuj ponownie.',
+      )
+      return
+    }
+    setLoginError('')
+    setClientSessionId(found.id)
+    setClientLogins((prev) => ({
+      ...prev,
+      [found.id]: {
+        lastAt: new Date().toISOString(),
+        count: (prev[found.id]?.count ?? 0) + 1,
+      },
+    }))
+    showToast(`Witaj, ${found.name.split(' ')[0]}.`)
+  }
+
   const logoutClient = () => {
     setClientSessionId(null)
     setClientScreen('home')
@@ -845,14 +869,20 @@ export default function App() {
             <button
               type="button"
               className={`vas-login-mode-btn ${loginMode === 'loan' ? 'is-active' : ''}`}
-              onClick={() => setLoginMode('loan')}
+              onClick={() => {
+                setLoginMode('loan')
+                setLoginError('')
+              }}
             >
               Logowanie: Pożyczka
             </button>
             <button
               type="button"
               className={`vas-login-mode-btn ${loginMode === 'sms' ? 'is-active' : ''}`}
-              onClick={() => setLoginMode('sms')}
+              onClick={() => {
+                setLoginMode('sms')
+                setLoginError('')
+              }}
             >
               Logowanie: SMS
             </button>
@@ -1119,36 +1149,50 @@ export default function App() {
                   </li>
                 ))}
               </ul>
-              <form
-                className="vas-form vas-home-login-form"
-                onSubmit={handleLoanLogin}
-                aria-labelledby="home-login-heading"
-              >
-                <h3 id="home-login-heading" className="vas-home-login-label">
-                  Numer pożyczki
-                </h3>
-                <input
-                  id="loan-home"
-                  className="vas-input vas-input-lg"
-                  placeholder="np. SP-1001"
-                  value={loanLogin}
-                  onChange={(e) => setLoanLogin(e.target.value)}
-                  autoComplete="off"
-                  autoCapitalize="characters"
-                />
-                {loginError ? (
-                  <p className="vas-form-error" role="alert">
-                    {loginError}
+              {loginMode === 'sms' ? (
+                <>
+                  {loginError ? (
+                    <p className="vas-form-error vas-mb-sm" role="alert">
+                      {loginError}
+                    </p>
+                  ) : null}
+                  <LoginSMS
+                    key="home-sms-login"
+                    onLoginSuccess={handleSmsLoginSuccess}
+                  />
+                </>
+              ) : (
+                <form
+                  className="vas-form vas-home-login-form"
+                  onSubmit={handleLoanLogin}
+                  aria-labelledby="home-login-heading"
+                >
+                  <h3 id="home-login-heading" className="vas-home-login-label">
+                    Numer pożyczki
+                  </h3>
+                  <input
+                    id="loan-home"
+                    className="vas-input vas-input-lg"
+                    placeholder="np. SP-1001"
+                    value={loanLogin}
+                    onChange={(e) => setLoanLogin(e.target.value)}
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                  />
+                  {loginError ? (
+                    <p className="vas-form-error" role="alert">
+                      {loginError}
+                    </p>
+                  ) : null}
+                  <button type="submit" className="vas-btn vas-btn-primary vas-btn-block vas-mt-sm">
+                    Zaloguj się
+                  </button>
+                  <p className="vas-login-demo-hint vas-home-demo-hint">
+                    Demo: <strong>SP-1001</strong>, <strong>SP-1002</strong>,{' '}
+                    <strong>SP-1003</strong>
                   </p>
-                ) : null}
-                <button type="submit" className="vas-btn vas-btn-primary vas-btn-block vas-mt-sm">
-                  Zaloguj się
-                </button>
-                <p className="vas-login-demo-hint vas-home-demo-hint">
-                  Demo: <strong>SP-1001</strong>, <strong>SP-1002</strong>,{' '}
-                  <strong>SP-1003</strong>
-                </p>
-              </form>
+                </form>
+              )}
             </article>
           </div>
         </main>
