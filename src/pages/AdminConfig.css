@@ -1,0 +1,371 @@
+.admin-config {
+  min-height: 100svh;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  color: #1a2b3d;
+  background: #f4f6f8;
+}
+
+.admin-config-login-wrap {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #1e2d3d 0%, #2a3f52 100%);
+  padding: 24px;
+}
+
+.admin-config-login-card {
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 32px 28px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.admin-config-login-logo {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1e2d3d;
+  margin: 0 0 4px;
+}
+
+.admin-config-login-sub {
+  margin: 0 0 24px;
+  color: #5c6b82;
+  font-size: 13px;
+}
+
+.admin-config-field {
+  margin-bottom: 16px;
+}
+
+.admin-config-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.admin-config-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #c5d0dc;
+  border-radius: 4px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.admin-config-field input:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 0;
+  border-color: #3b82f6;
+}
+
+.admin-config-login-error {
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.admin-config-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-config-btn-primary {
+  background: #2563eb;
+  color: #fff;
+  width: 100%;
+}
+
+.admin-config-btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.admin-config-btn-save {
+  background: #16a34a;
+  color: #fff;
+  margin-top: 8px;
+}
+
+.admin-config-btn-save:hover {
+  background: #15803d;
+}
+
+.admin-config-layout {
+  display: flex;
+  min-height: 100svh;
+}
+
+.admin-config-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: #1e2d3d;
+  color: #e8eef4;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-config-sidebar-head {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-config-sidebar-logo {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px;
+}
+
+.admin-config-sidebar-sub {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9fb0c3;
+}
+
+.admin-config-nav {
+  list-style: none;
+  margin: 0;
+  padding: 12px 0;
+  flex: 1;
+}
+
+.admin-config-nav-item {
+  margin: 0;
+}
+
+.admin-config-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #b8c5d4;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: default;
+}
+
+.admin-config-nav-btn.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 600;
+  border-left: 3px solid #22c55e;
+  padding-left: 17px;
+}
+
+.admin-config-nav-btn.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-config-nav-soon {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.admin-config-sidebar-foot {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-config-logout {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #e8eef4;
+  padding: 8px 14px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.admin-config-logout:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-config-main {
+  flex: 1;
+  background: #fff;
+  padding: 28px 32px 40px;
+  overflow: auto;
+}
+
+.admin-config-page-title {
+  margin: 0 0 24px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e2d3d;
+}
+
+.admin-config-section {
+  margin-bottom: 32px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-config-section:last-of-type {
+  border-bottom: none;
+}
+
+.admin-config-section h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e2d3d;
+}
+
+.admin-config-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-config-tab {
+  padding: 10px 18px;
+  border: 1px solid #c5d0dc;
+  background: #f8fafc;
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: #334155;
+}
+
+.admin-config-tab:hover {
+  border-color: #94a3b8;
+}
+
+.admin-config-tab.is-active {
+  background: #1e2d3d;
+  border-color: #1e2d3d;
+  color: #fff;
+}
+
+.admin-config-products {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-config-product-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.4fr) 100px 120px;
+  gap: 12px 16px;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+}
+
+@media (max-width: 720px) {
+  .admin-config-product-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-config-product-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.admin-config-product-check input {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-config-num-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.admin-config-num-field input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #c5d0dc;
+  border-radius: 4px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.admin-config-num-field input:disabled {
+  background: #eef2f6;
+  color: #94a3b8;
+}
+
+.admin-config-benefits-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-config-benefits-table th,
+.admin-config-benefits-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.admin-config-benefits-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.admin-config-benefits-table input[type='number'] {
+  width: 100px;
+  padding: 8px 10px;
+  border: 1px solid #c5d0dc;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.admin-config-benefits-table input[type='number']:disabled {
+  background: #eef2f6;
+}
+
+.admin-config-benefit-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-config-save-msg {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.admin-config-save-actions {
+  margin-top: 8px;
+}
