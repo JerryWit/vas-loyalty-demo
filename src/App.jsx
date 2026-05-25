@@ -1293,12 +1293,15 @@ export default function App() {
                       </h2>
                       <p className="vas-lender-confirm-body">
                         <strong>{LENDER.name}</strong> zaakceptował wykorzystanie punktów w programie
-                        lojalnościowym i potwierdził przedłużenie spłaty o{' '}
+                        lojalnościowym na przedłużenie spłaty pożyczki o{' '}
                         <strong>{lenderPortalProlongSuccess.prolongDays} dni</strong> do dnia{' '}
                         <strong>
                           {formatDateOnly(lenderPortalProlongSuccess.repaymentDate)}
                         </strong>
-                        . Wysłaliśmy potwierdzenie SMS-em i mailem.
+                        .
+                        <br />
+                        <br />
+                        Szczegóły otrzymasz SMS-em i mailem od <strong>{LENDER.name}</strong>.
                       </p>
                       <div className="vas-lender-confirm-actions">
                         <button
