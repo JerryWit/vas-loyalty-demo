@@ -332,6 +332,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('')
   const [clientSessionId, setClientSessionId] = useState(null)
   const [clientScreen, setClientScreen] = useState('home')
+  const [loginMode, setLoginMode] = useState('loan')
   const [toast, setToast] = useState(null)
 
   const [pointsByClient, setPointsByClient] = useState(() =>
@@ -836,6 +837,26 @@ export default function App() {
           </nav>
         ) : null}
         <div className="vas-topbar-actions">
+          <div
+            className="vas-login-mode-toggle"
+            role="group"
+            aria-label="Tryb logowania"
+          >
+            <button
+              type="button"
+              className={`vas-login-mode-btn ${loginMode === 'loan' ? 'is-active' : ''}`}
+              onClick={() => setLoginMode('loan')}
+            >
+              Logowanie: Pożyczka
+            </button>
+            <button
+              type="button"
+              className={`vas-login-mode-btn ${loginMode === 'sms' ? 'is-active' : ''}`}
+              onClick={() => setLoginMode('sms')}
+            >
+              Logowanie: SMS
+            </button>
+          </div>
           {role === 'client' && clientScreen === 'lender-portal' ? (
             <button type="button" className="vas-btn vas-btn-ghost" onClick={leaveLenderPortal}>
               ← Program VAS
