@@ -98,7 +98,7 @@ const TRANSACTIONS = [
     client: 'Jan Kowalski',
     loanNumber: 'SP-1001',
     type: 'purchase',
-    typeLabel: 'Zakup telemedycyny (120 zł)',
+    typeLabel: 'Zakup VAS',
     points: '+65 pkt',
     commission: '102 pkt',
   },
@@ -284,7 +284,7 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
                 <th>Punkty wykorzystane</th>
                 <th>Punkty dostępne</th>
                 <th>Aktywność w LoyalVAS</th>
-                <th>Prowizja pożyczkodawcy (pkt)</th>
+                <th>Punkty Pożyczkodawcy</th>
               </tr>
             </thead>
             <tbody>
@@ -338,7 +338,7 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
                 <th>Numer pożyczki</th>
                 <th>Typ zdarzenia</th>
                 <th>Punkty</th>
-                <th>Prowizja pożyczkodawcy (pkt)</th>
+                <th>Punkty Pożyczkodawcy</th>
               </tr>
             </thead>
             <tbody>
