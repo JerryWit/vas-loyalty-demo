@@ -12,10 +12,9 @@ const STATS_ROW_1 = [
   {
     id: 'vas',
     label: 'Zakupy VAS w tym miesiącu',
-    foot: 'Łącznie od początku',
+    foot: 'Łącznie od początku współpracy',
     value: '3',
     footValue: '12',
-    combined: true,
   },
   {
     id: 'conversion',
@@ -41,9 +40,9 @@ const STATS_ROW_2 = [
   },
   {
     id: 'commission',
-    label: 'Punkty prowizyjne pożyczkodawcy',
+    label: 'Punkty Pożyczkodawcy',
     foot: 'Łącznie od początku współpracy',
-    value: '16 pkt',
+    value: '102 pkt',
     accent: true,
   },
 ]
@@ -57,8 +56,8 @@ const CLIENTS = [
     pointsEarned: 65,
     pointsUsed: 0,
     pointsAvailable: 65,
-    prolongStatus: 'green',
-    commissionPts: 16,
+    loyaltyActive: true,
+    commissionPts: 102,
   },
   {
     name: 'Anna Nowak',
@@ -68,7 +67,7 @@ const CLIENTS = [
     pointsEarned: 0,
     pointsUsed: 0,
     pointsAvailable: 0,
-    prolongStatus: 'gray',
+    loyaltyActive: false,
     commissionPts: 0,
   },
   {
@@ -79,7 +78,7 @@ const CLIENTS = [
     pointsEarned: 0,
     pointsUsed: 0,
     pointsAvailable: 0,
-    prolongStatus: 'gray',
+    loyaltyActive: false,
     commissionPts: 0,
   },
 ]
@@ -99,9 +98,9 @@ const TRANSACTIONS = [
     client: 'Jan Kowalski',
     loanNumber: 'SP-1001',
     type: 'purchase',
-    typeLabel: 'Zakup VAS',
+    typeLabel: 'Zakup telemedycyny (120 zł)',
     points: '+65 pkt',
-    commission: '16 pkt',
+    commission: '102 pkt',
   },
   {
     date: '20.05.2026 09:45',
@@ -153,18 +152,16 @@ const WEBHOOK_BENEFITS = [
   },
 ]
 
-function ProlongDot({ status }) {
-  const titles = {
-    green: 'Wystarczająco punktów na prolongatę 14 dni',
-    yellow: 'Brakuje mniej niż 20 pkt na prolongatę 14 dni',
-    gray: 'Za mało punktów na prolongatę',
-  }
+function LoyalVasActivity({ active }) {
+  const label = active ? 'Aktywny' : 'Nie logował się'
   return (
-    <span
-      className={`ld-prolong-dot ld-prolong-dot--${status}`}
-      title={titles[status]}
-      aria-label={titles[status]}
-    />
+    <span className="ld-loyalty-activity">
+      <span
+        className={`ld-activity-dot ${active ? 'ld-activity-dot--active' : 'ld-activity-dot--inactive'}`}
+        aria-hidden
+      />
+      <span className="ld-activity-label">{label}</span>
+    </span>
   )
 }
 
@@ -247,28 +244,14 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
           {STATS_ROW_1.map((tile) => (
             <article key={tile.id} className="vas-kpi ld-kpi">
               <div className="vas-kpi-label">{tile.label}</div>
-              <div className="vas-kpi-value">
-                {tile.combined ? (
-                  <>
-                    {tile.value} <span className="ld-kpi-sep">/</span> {tile.footValue}
-                  </>
-                ) : (
-                  tile.value
-                )}
-              </div>
+              <div className="vas-kpi-value">{tile.value}</div>
               <div className="vas-kpi-foot">
-                {tile.combined ? (
-                  tile.foot
-                ) : (
+                {tile.foot}
+                {tile.footValue ? (
                   <>
-                    {tile.foot}
-                    {tile.footValue ? (
-                      <>
-                        : <strong>{tile.footValue}</strong>
-                      </>
-                    ) : null}
+                    : <strong>{tile.footValue}</strong>
                   </>
-                )}
+                ) : null}
               </div>
             </article>
           ))}
@@ -300,8 +283,8 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
                 <th>Punkty zdobyte</th>
                 <th>Punkty wykorzystane</th>
                 <th>Punkty dostępne</th>
-                <th>Status prolongaty</th>
-                <th>Prowizja pożyczkodawcy</th>
+                <th>Aktywność w LoyalVAS</th>
+                <th>Prowizja pożyczkodawcy (pkt)</th>
               </tr>
             </thead>
             <tbody>
@@ -326,8 +309,8 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
                   <td>
                     <strong>{row.pointsAvailable} pkt</strong>
                   </td>
-                  <td className="ld-td-dot">
-                    <ProlongDot status={row.prolongStatus} />
+                  <td>
+                    <LoyalVasActivity active={row.loyaltyActive} />
                   </td>
                   <td>{row.commissionPts} pkt</td>
                 </tr>
@@ -355,7 +338,7 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
                 <th>Numer pożyczki</th>
                 <th>Typ zdarzenia</th>
                 <th>Punkty</th>
-                <th>Prowizja (pkt)</th>
+                <th>Prowizja pożyczkodawcy (pkt)</th>
               </tr>
             </thead>
             <tbody>

@@ -31,12 +31,6 @@
   font-size: 26px;
 }
 
-.ld-kpi-sep {
-  font-weight: 500;
-  color: var(--vas-slate);
-  margin: 0 2px;
-}
-
 .ld-section-head {
   display: flex;
   flex-wrap: wrap;
@@ -104,31 +98,33 @@
   font-weight: 700;
 }
 
-.ld-td-dot {
-  text-align: center;
-  width: 48px;
+.ld-loyalty-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
-.ld-prolong-dot {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
+.ld-activity-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
 }
 
-.ld-prolong-dot--green {
+.ld-activity-dot--active {
   background: #22c55e;
   box-shadow: 0 0 0 2px #dcfce7;
 }
 
-.ld-prolong-dot--yellow {
-  background: #eab308;
-  box-shadow: 0 0 0 2px #fef9c3;
-}
-
-.ld-prolong-dot--gray {
+.ld-activity-dot--inactive {
   background: #94a3b8;
   box-shadow: 0 0 0 2px #f1f5f9;
+}
+
+.ld-activity-label {
+  font-size: 13px;
+  color: var(--vas-ink);
 }
 
 .ld-chart-wrap {
