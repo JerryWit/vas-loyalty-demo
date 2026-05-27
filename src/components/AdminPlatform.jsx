@@ -332,6 +332,15 @@ export default function AdminPlatform({
     setEventFilter('failed')
   }
 
+  const netPlatformRevenueValue =
+    (settlementModel?.platformNetRevenue ?? 0) > 0
+      ? formatMoney(settlementModel.platformNetRevenue)
+      : '0 zł'
+  const avgBasketValue =
+    purchases.length > 0
+      ? formatMoney((settlementModel?.totalVasRevenue ?? 0) / purchases.length)
+      : '—'
+
   const kpiRow1 = [
     {
       id: 'sales',
@@ -343,7 +352,7 @@ export default function AdminPlatform({
     {
       id: 'net',
       label: 'Przychód netto platformy',
-      value: DEMO_STATIC.kpis.netRevenue,
+      value: netPlatformRevenueValue,
       foot: 'Po odliczeniu prowizji partnerów',
     },
     {
@@ -355,7 +364,7 @@ export default function AdminPlatform({
     {
       id: 'basket',
       label: 'Średnia wartość koszyka',
-      value: DEMO_STATIC.kpis.avgBasket,
+      value: avgBasketValue,
       foot: 'Na transakcję VAS',
     },
   ]
