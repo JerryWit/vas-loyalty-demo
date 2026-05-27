@@ -8,195 +8,46 @@ const PERIOD_OPTIONS = [
   { id: 'all', label: 'Od początku współpracy' },
 ]
 
-const DEMO_BY_PERIOD = {
-  today: {
-    alerts: {
-      failedWebhooks: 2,
-      expiringPoints: { pts: 45, clients: 3 },
-      csvDeadline: { days: 8, date: '05.06.2026' },
-    },
-    kpis: {
-      totalSales: '186 zł',
-      netRevenue: '150 zł',
-      lenderPoints: '36 pkt',
-      avgBasket: '93 zł',
-      loggedIn: '2',
-      withPurchase: '1',
-      conversion: '50%',
-      pointsGranted: '65 pkt',
-      pointsUsed: '0 pkt',
-    },
-    lenders: [
-      {
-        name: 'EkspresPożyczka',
-        active: 1,
-        purchases: 1,
-        sales: '120 zł',
-        platform: '97 zł',
-        commissionPts: 51,
-        conversion: '100%',
-      },
-      {
-        name: 'KredytOK',
-        active: 1,
-        purchases: 0,
-        sales: '0 zł',
-        platform: '0 zł',
-        commissionPts: 0,
-        conversion: '0%',
-      },
-      {
-        name: 'PożyczkaPLUS',
-        active: 0,
-        purchases: 0,
-        sales: '0 zł',
-        platform: '0 zł',
-        commissionPts: 0,
-        conversion: '—',
-      },
-    ],
+const DEMO_STATIC = {
+  alerts: {
+    failedWebhooks: 2,
+    expiringPoints: { pts: 45, clients: 3 },
+    csvDeadline: { days: 8, date: '05.06.2026' },
   },
-  month: {
-    kpis: {
-      totalSales: '2 340 zł',
-      netRevenue: '1 890 zł',
-      lenderPoints: '450 pkt',
-      avgBasket: '195 zł',
-      loggedIn: '12',
-      withPurchase: '8',
-      conversion: '67%',
-      pointsGranted: '520 pkt',
-      pointsUsed: '210 pkt',
-    },
-    lenders: [
-      {
-        name: 'EkspresPożyczka',
-        active: 5,
-        purchases: 4,
-        sales: '960 zł',
-        platform: '776 zł',
-        commissionPts: 412,
-        conversion: '80%',
-      },
-      {
-        name: 'KredytOK',
-        active: 4,
-        purchases: 3,
-        sales: '840 zł',
-        platform: '672 zł',
-        commissionPts: 360,
-        conversion: '75%',
-      },
-      {
-        name: 'PożyczkaPLUS',
-        active: 3,
-        purchases: 1,
-        sales: '540 zł',
-        platform: '432 zł',
-        commissionPts: 231,
-        conversion: '33%',
-      },
-    ],
-    alerts: {
-      failedWebhooks: 2,
-      expiringPoints: { pts: 45, clients: 3 },
-      csvDeadline: { days: 8, date: '05.06.2026' },
-    },
+  kpis: {
+    totalSales: '2 340 zł',
+    netRevenue: '1 890 zł',
+    avgBasket: '195 zł',
   },
-  prevMonth: {
-    alerts: {
-      failedWebhooks: 2,
-      expiringPoints: { pts: 45, clients: 3 },
-      csvDeadline: { days: 8, date: '05.06.2026' },
+  lenders: [
+    {
+      name: 'EkspresPożyczka',
+      active: 5,
+      purchases: 4,
+      sales: '960 zł',
+      platform: '776 zł',
+      commissionPts: 412,
+      conversion: '80%',
     },
-    kpis: {
-      totalSales: '1 980 zł',
-      netRevenue: '1 584 zł',
-      lenderPoints: '396 pkt',
-      avgBasket: '180 zł',
-      loggedIn: '10',
-      withPurchase: '7',
-      conversion: '70%',
-      pointsGranted: '440 pkt',
-      pointsUsed: '185 pkt',
+    {
+      name: 'KredytOK',
+      active: 4,
+      purchases: 3,
+      sales: '840 zł',
+      platform: '672 zł',
+      commissionPts: 360,
+      conversion: '75%',
     },
-    lenders: [
-      {
-        name: 'EkspresPożyczka',
-        active: 4,
-        purchases: 3,
-        sales: '820 zł',
-        platform: '662 zł',
-        commissionPts: 352,
-        conversion: '75%',
-      },
-      {
-        name: 'KredytOK',
-        active: 3,
-        purchases: 3,
-        sales: '720 zł',
-        platform: '576 zł',
-        commissionPts: 308,
-        conversion: '100%',
-      },
-      {
-        name: 'PożyczkaPLUS',
-        active: 3,
-        purchases: 1,
-        sales: '440 zł',
-        platform: '346 zł',
-        commissionPts: 185,
-        conversion: '33%',
-      },
-    ],
-  },
-  all: {
-    kpis: {
-      totalSales: '8 420 zł',
-      netRevenue: '6 780 zł',
-      lenderPoints: '1 640 pkt',
-      avgBasket: '188 zł',
-      loggedIn: '28',
-      withPurchase: '19',
-      conversion: '68%',
-      pointsGranted: '1 840 pkt',
-      pointsUsed: '720 pkt',
+    {
+      name: 'PożyczkaPLUS',
+      active: 3,
+      purchases: 1,
+      sales: '540 zł',
+      platform: '432 zł',
+      commissionPts: 231,
+      conversion: '33%',
     },
-    lenders: [
-      {
-        name: 'EkspresPożyczka',
-        active: 12,
-        purchases: 9,
-        sales: '3 240 zł',
-        platform: '2 620 zł',
-        commissionPts: 1380,
-        conversion: '75%',
-      },
-      {
-        name: 'KredytOK',
-        active: 10,
-        purchases: 7,
-        sales: '2 880 zł',
-        platform: '2 310 zł',
-        commissionPts: 1220,
-        conversion: '70%',
-      },
-      {
-        name: 'PożyczkaPLUS',
-        active: 6,
-        purchases: 3,
-        sales: '2 300 zł',
-        platform: '1 850 zł',
-        commissionPts: 980,
-        conversion: '50%',
-      },
-    ],
-    alerts: {
-      failedWebhooks: 2,
-      expiringPoints: { pts: 45, clients: 3 },
-      csvDeadline: { days: 8, date: '05.06.2026' },
-    },
-  },
+  ],
 }
 
 const TELEMEDI_ROWS = [
@@ -230,55 +81,51 @@ const TU_BETA_TOTAL = { count: 5, premium: '780 zł', platform: '156 zł' }
 
 const INSURANCE_GRAND_TOTAL = { count: 12, premium: '1 680 zł', platform: '336 zł' }
 
-const OPERATIONS = [
-  {
-    date: '25.05.2026 17:13',
-    client: 'Jan Kowalski',
-    lender: 'EkspresPożyczka',
-    type: 'purchase',
-    typeLabel: 'Zakup VAS',
-    points: '+65 pkt',
-    status: 'ok',
-    statusLabel: 'OK',
-  },
-  {
-    date: '20.05.2026 09:45',
-    client: 'Jan Kowalski',
-    lender: 'EkspresPożyczka',
-    type: 'failed',
-    typeLabel: 'Wymiana na prolongatę 30 dni',
-    points: '−70 pkt',
-    status: 'failed',
-    statusLabel: 'Failed webhook',
-  },
-  {
-    date: '19.05.2026 14:20',
-    client: 'Anna Nowak',
-    lender: 'KredytOK',
-    type: 'purchase',
-    typeLabel: 'Zakup VAS',
-    points: '+130 pkt',
-    status: 'ok',
-    statusLabel: 'OK',
-  },
-  {
-    date: '01.05.2026 00:00',
-    client: 'Piotr Zieliński',
-    lender: 'PożyczkaPLUS',
-    type: 'expiry',
-    typeLabel: 'Wygaśnięcie punktów',
-    points: '−20 pkt',
-    status: 'auto',
-    statusLabel: 'Auto',
-  },
-]
-
 const EVENT_FILTERS = [
   { id: 'all', label: 'Wszystkie' },
   { id: 'failed', label: 'Failed webhooki' },
   { id: 'chargeback', label: 'Chargebacki' },
   { id: 'expiry', label: 'Wygaśnięcia punktów' },
 ]
+
+function formatTxDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getRedemptionPointsCost(redemption) {
+  return redemption.pointsCost ?? redemption.points ?? 0
+}
+
+function buildLiveKpis(purchases, lenderRedemptions, lenderPointsTotal) {
+  const uniqueClientIds = new Set(purchases.map((p) => p.clientId).filter(Boolean))
+  const loggedIn = uniqueClientIds.size
+  const withPurchase = loggedIn
+  const conversion =
+    loggedIn > 0 ? `${Math.round((withPurchase / loggedIn) * 100)}%` : '0%'
+  const pointsGranted = purchases.reduce((s, p) => s + (p.pointsEarned ?? 0), 0)
+  const pointsUsed = lenderRedemptions.reduce(
+    (s, r) => s + getRedemptionPointsCost(r),
+    0,
+  )
+
+  return {
+    loggedIn: String(loggedIn),
+    withPurchase: String(withPurchase),
+    conversion,
+    pointsGranted: `${pointsGranted} pkt`,
+    pointsUsed: `${pointsUsed} pkt`,
+    lenderPoints: `${lenderPointsTotal} pkt`,
+  }
+}
 
 function SectionCard({ title, badge, children, id }) {
   return (
@@ -296,31 +143,77 @@ function SectionCard({ title, badge, children, id }) {
   )
 }
 
-export default function AdminPlatform({ settlementModel, formatMoney }) {
+export default function AdminPlatform({
+  settlementModel,
+  formatMoney,
+  purchases = [],
+  lenderRedemptions = [],
+  pointsByClient = {},
+  lenderPointsTotal = 0,
+  baseClients = [],
+}) {
   const [period, setPeriod] = useState('month')
   const [eventFilter, setEventFilter] = useState('all')
   const operationsRef = useRef(null)
 
-  const data = DEMO_BY_PERIOD[period] ?? DEMO_BY_PERIOD.month
+  const liveKpis = useMemo(
+    () => buildLiveKpis(purchases, lenderRedemptions, lenderPointsTotal),
+    [purchases, lenderRedemptions, lenderPointsTotal],
+  )
+
+  const clientById = useMemo(
+    () => Object.fromEntries(baseClients.map((c) => [c.id, c])),
+    [baseClients],
+  )
+
+  const operations = useMemo(() => {
+    const purchaseRows = purchases.map((p) => ({
+      id: p.id,
+      date: formatTxDate(p.at),
+      client: clientById[p.clientId]?.name ?? p.clientId,
+      lender: settlementModel?.lenderName ?? 'EkspresPożyczka',
+      type: 'purchase',
+      typeLabel: 'Zakup VAS',
+      points: `+${p.pointsEarned ?? 0} pkt`,
+      status: 'ok',
+      statusLabel: 'OK',
+      at: p.at,
+    }))
+    const redemptionRows = lenderRedemptions.map((r) => ({
+      id: r.id,
+      date: formatTxDate(r.at),
+      client: clientById[r.clientId]?.name ?? r.clientId,
+      lender: r.lenderName ?? settlementModel?.lenderName ?? 'EkspresPożyczka',
+      type: 'redeem',
+      typeLabel: r.optionLabel ?? 'Wymiana punktów',
+      points: `−${getRedemptionPointsCost(r)} pkt`,
+      status: 'ok',
+      statusLabel: 'OK',
+      at: r.at,
+    }))
+    return [...purchaseRows, ...redemptionRows].sort(
+      (a, b) => new Date(b.at) - new Date(a.at),
+    )
+  }, [purchases, lenderRedemptions, clientById, settlementModel?.lenderName])
 
   const lenderTotals = useMemo(() => {
-    const rows = data.lenders
+    const rows = DEMO_STATIC.lenders
     return {
       active: rows.reduce((s, r) => s + r.active, 0),
       purchases: rows.reduce((s, r) => s + r.purchases, 0),
-      sales: period === 'month' ? '2 340 zł' : data.kpis.totalSales,
-      platform: period === 'month' ? '1 880 zł' : data.kpis.netRevenue,
+      sales: DEMO_STATIC.kpis.totalSales,
+      platform: DEMO_STATIC.kpis.netRevenue,
       commissionPts: rows.reduce((s, r) => s + r.commissionPts, 0),
       conversion: '67%',
     }
-  }, [data, period])
+  }, [])
 
   const filteredOperations = useMemo(() => {
-    if (eventFilter === 'all') return OPERATIONS
-    if (eventFilter === 'failed') return OPERATIONS.filter((o) => o.status === 'failed')
-    if (eventFilter === 'expiry') return OPERATIONS.filter((o) => o.type === 'expiry')
-    return OPERATIONS.filter((o) => o.type === 'chargeback')
-  }, [eventFilter])
+    if (eventFilter === 'all') return operations
+    if (eventFilter === 'failed') return operations.filter((o) => o.status === 'failed')
+    if (eventFilter === 'expiry') return operations.filter((o) => o.type === 'expiry')
+    return operations.filter((o) => o.type === 'chargeback')
+  }, [eventFilter, operations])
 
   const scrollToOperations = () => {
     operationsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -331,26 +224,26 @@ export default function AdminPlatform({ settlementModel, formatMoney }) {
     {
       id: 'sales',
       label: 'Całkowita sprzedaż VAS',
-      value: data.kpis.totalSales,
+      value: DEMO_STATIC.kpis.totalSales,
       foot: 'Przychód brutto w wybranym okresie',
       dark: true,
     },
     {
       id: 'net',
       label: 'Przychód netto platformy',
-      value: data.kpis.netRevenue,
+      value: DEMO_STATIC.kpis.netRevenue,
       foot: 'Po odliczeniu prowizji partnerów',
     },
     {
       id: 'lender',
       label: 'Punkty Pożyczkodawcy',
-      value: data.kpis.lenderPoints,
+      value: liveKpis.lenderPoints,
       foot: 'Suma punktów pożyczkodawcy w wybranym okresie',
     },
     {
       id: 'basket',
       label: 'Średnia wartość koszyka',
-      value: data.kpis.avgBasket,
+      value: DEMO_STATIC.kpis.avgBasket,
       foot: 'Na transakcję VAS',
     },
   ]
@@ -359,30 +252,30 @@ export default function AdminPlatform({ settlementModel, formatMoney }) {
     {
       id: 'logged',
       label: 'Klienci zalogowani',
-      value: data.kpis.loggedIn,
+      value: liveKpis.loggedIn,
       foot: 'Unikalnych w wybranym okresie',
     },
     {
       id: 'buyers',
       label: 'Klienci z zakupem VAS',
-      value: data.kpis.withPurchase,
-      foot: `Konwersja: ${data.kpis.conversion}`,
+      value: liveKpis.withPurchase,
+      foot: `Konwersja: ${liveKpis.conversion}`,
     },
     {
       id: 'granted',
       label: 'Punkty przyznane',
-      value: data.kpis.pointsGranted,
+      value: liveKpis.pointsGranted,
       foot: 'Naliczone klientom',
     },
     {
       id: 'used',
       label: 'Punkty wykorzystane',
-      value: data.kpis.pointsUsed,
+      value: liveKpis.pointsUsed,
       foot: 'Wymienione na korzyści',
     },
   ]
 
-  const { alerts } = data
+  const { alerts } = DEMO_STATIC
   const showAlerts =
     alerts.failedWebhooks > 0 || alerts.expiringPoints || alerts.csvDeadline
 
@@ -486,7 +379,7 @@ export default function AdminPlatform({ settlementModel, formatMoney }) {
               </tr>
             </thead>
             <tbody>
-              {data.lenders.map((row) => (
+              {DEMO_STATIC.lenders.map((row) => (
                 <tr key={row.name}>
                   <td>
                     <strong>{row.name}</strong>
@@ -751,8 +644,8 @@ export default function AdminPlatform({ settlementModel, formatMoney }) {
                   </td>
                 </tr>
               ) : (
-                filteredOperations.map((row, i) => (
-                  <tr key={i}>
+                filteredOperations.map((row) => (
+                  <tr key={row.id ?? `${row.at}-${row.type}`}>
                     <td className="ap-td-nowrap">{row.date}</td>
                     <td>
                       {row.client} ({row.lender})

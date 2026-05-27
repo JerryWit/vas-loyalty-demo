@@ -1710,6 +1710,11 @@ export default function App() {
 
               <AdminPlatform
                 formatMoney={formatMoney}
+                purchases={purchases}
+                lenderRedemptions={lenderRedemptions}
+                pointsByClient={pointsByClient}
+                lenderPointsTotal={lenderPointsTotal}
+                baseClients={BASE_CLIENTS}
                 settlementModel={{
                   totalVasRevenue,
                   lenderCommissionTotal,
