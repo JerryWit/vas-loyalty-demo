@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import LoginSMS from './components/LoginSMS.jsx'
+import LenderDashboard from './components/LenderDashboard.jsx'
 import './App.css'
 
 const STORAGE_KEY = 'vas-eksprespozyczka-demo-v1'
@@ -359,12 +360,6 @@ export default function App() {
   const [clientLogins, setClientLogins] = useState(
     () => buildInitialState().clientLogins,
   )
-  const [lenderApiDemoClientId, setLenderApiDemoClientId] = useState(
-    () => BASE_CLIENTS[0]?.id ?? '',
-  )
-  const [lenderApiDemoOptionId, setLenderApiDemoOptionId] = useState(
-    () => LENDER_POINTS_CATALOG[0]?.id ?? '',
-  )
   const [repaymentExtraDays, setRepaymentExtraDays] = useState(
     () => buildInitialState().repaymentExtraDays,
   )
@@ -593,77 +588,6 @@ export default function App() {
     () => lenderRedemptions.reduce((s, r) => s + r.points, 0),
     [lenderRedemptions],
   )
-
-  const totalVasPointsEarned = useMemo(
-    () => purchases.reduce((s, p) => s + p.pointsEarned, 0),
-    [purchases],
-  )
-
-  const lenderCommissionPointsTotal = useMemo(
-    () =>
-      purchases.reduce(
-        (s, p) => s + commissionPointsOnPurchase(p.pointsEarned),
-        0,
-      ),
-    [purchases],
-  )
-
-  const lenderPortalRows = useMemo(() => {
-    return BASE_CLIENTS.map((c) => {
-      const clientPurch = purchases.filter((x) => x.clientId === c.id)
-      const pointsEarnedFromVas = clientPurch.reduce(
-        (s, x) => s + x.pointsEarned,
-        0,
-      )
-      const commissionPointsFromVas = clientPurch.reduce(
-        (s, x) => s + commissionPointsOnPurchase(x.pointsEarned),
-        0,
-      )
-      const pointsAvailable = pointsByClient[c.id] ?? c.basePoints
-      const redemptionsForClient = lenderRedemptions.filter(
-        (r) => r.clientId === c.id,
-      )
-      const redemptionCount = redemptionsForClient.length
-      const pointsSpentOnRedemptions = redemptionsForClient.reduce(
-        (s, r) => s + r.points,
-        0,
-      )
-      const login = clientLogins[c.id]
-      const sessionActiveHere = clientSessionId === c.id
-      return {
-        ...c,
-        pointsEarnedFromVas,
-        commissionPointsFromVas,
-        pointsAvailable,
-        purchaseCount: clientPurch.length,
-        redemptionCount,
-        pointsSpentOnRedemptions,
-        lastLoginAt: login?.lastAt ?? null,
-        loginCount: login?.count ?? 0,
-        sessionActiveHere,
-      }
-    })
-  }, [
-    purchases,
-    pointsByClient,
-    lenderRedemptions,
-    clientLogins,
-    clientSessionId,
-  ])
-
-  const lenderPurchaseHistory = useMemo(() => {
-    return [...purchases]
-      .sort((a, b) => new Date(b.at) - new Date(a.at))
-      .map((row) => {
-        const cl = BASE_CLIENTS.find((c) => c.id === row.clientId)
-        return {
-          ...row,
-          clientName: cl?.name ?? '—',
-          loanNumber: cl?.loanNumber ?? '—',
-          commissionPoints: commissionPointsOnPurchase(row.pointsEarned),
-        }
-      })
-  }, [purchases])
 
   const handleLoanLogin = (e) => {
     e.preventDefault()
@@ -1791,194 +1715,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="vas-kpi-grid vas-kpi-grid-6">
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Zalogowani klienci</div>
-                  <div className="vas-kpi-value">{loggedInClientCount}</div>
-                  <div className="vas-kpi-foot">
-                    Unikalni klienci z co najmniej jednym logowaniem w portalu
-                  </div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Liczba zakupionych VAS</div>
-                  <div className="vas-kpi-value">{purchases.length}</div>
-                  <div className="vas-kpi-foot">Wszystkie transakcje dodatków</div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Punkty zdobyte z VAS</div>
-                  <div className="vas-kpi-value">{totalVasPointsEarned} pkt</div>
-                  <div className="vas-kpi-foot">Suma punktów przyznanych klientom za zakupy</div>
-                </article>
-                <article className="vas-kpi vas-kpi-accent">
-                  <div className="vas-kpi-label">Prowizja dla {LENDER.name}</div>
-                  <div className="vas-kpi-value">{lenderCommissionPointsTotal} pkt</div>
-                  <div className="vas-kpi-foot">
-                    {LENDER.commissionPercent}% punktów zdobytych przy sprzedaży VAS
-                  </div>
-                </article>
-              </div>
-
-              <div className="vas-card vas-card-elevated vas-mt-lg">
-                <div className="vas-card-head">
-                  <h2 className="vas-h2">Klienci {LENDER.name}</h2>
-                  <span className="vas-badge">CRM</span>
-                </div>
-                <div className="vas-table-wrap">
-                  <table className="vas-table">
-                    <thead>
-                      <tr>
-                        <th>Klient</th>
-                        <th>Numer pożyczki</th>
-                        <th>Status logowania</th>
-                        <th>Zakupione VAS</th>
-                        <th>Punkty zdobyte</th>
-                        <th>Prowizja (pkt)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lenderPortalRows.map((row) => (
-                        <tr key={row.id}>
-                          <td>
-                            <strong className="vas-text-strong">{row.name}</strong>
-                          </td>
-                          <td>{row.loanNumber}</td>
-                          <td>
-                            {row.sessionActiveHere ? (
-                              <span className="vas-status vas-status-live">Sesja aktywna</span>
-                            ) : row.loginCount > 0 ? (
-                              <span className="vas-status vas-status-ok">
-                                Ostatnio: {formatDate(row.lastLoginAt)}
-                                <span className="vas-muted vas-text-sm">
-                                  {' '}
-                                  ({row.loginCount}{' '}
-                                  {row.loginCount === 1 ? 'logowanie' : 'logowań'})
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="vas-status vas-status-off">Brak logowania</span>
-                            )}
-                          </td>
-                          <td>
-                            {row.purchaseCount > 0 ? (
-                              <>
-                                <strong>{row.purchaseCount}</strong>
-                                {row.purchaseCount === 1
-                                  ? ' zakup VAS'
-                                  : ' zakupy VAS'}
-                              </>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td>
-                            <span className="vas-tag-pos">+{row.pointsEarnedFromVas} pkt</span>
-                          </td>
-                          <td>
-                            {row.commissionPointsFromVas > 0
-                              ? `${row.commissionPointsFromVas} pkt`
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="vas-card vas-card-elevated vas-mt-lg">
-                <div className="vas-card-head">
-                  <h2 className="vas-h2">Historia zakupów VAS klientów</h2>
-                  <span className="vas-badge vas-badge-green">Transakcje</span>
-                </div>
-                {lenderPurchaseHistory.length === 0 ? (
-                  <p className="vas-muted">Brak zakupów VAS.</p>
-                ) : (
-                  <div className="vas-table-wrap">
-                    <table className="vas-table">
-                      <thead>
-                        <tr>
-                          <th>Data</th>
-                          <th>Klient</th>
-                          <th>Numer pożyczki</th>
-                          <th>Punkty zdobyte</th>
-                          <th>Prowizja (pkt)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lenderPurchaseHistory.map((row) => (
-                          <tr key={row.id}>
-                            <td>{formatDate(row.at)}</td>
-                            <td>{row.clientName}</td>
-                            <td>{row.loanNumber}</td>
-                            <td>
-                              <span className="vas-tag-pos">+{row.pointsEarned} pkt</span>
-                            </td>
-                            <td>{row.commissionPoints} pkt</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              <div className="vas-card vas-card-elevated vas-mt-lg">
-                <div className="vas-card-head">
-                  <h2 className="vas-h2">Symulacja API potwierdzenia wykorzystania</h2>
-                  <span className="vas-badge vas-badge-navy">Demo</span>
-                </div>
-                <p className="vas-muted vas-mb-md">
-                  W produkcji pożyczkodawca wywołuje API platformy po wykorzystaniu punktów w
-                  swoim portalu. Poniżej symulacja zapisu potwierdzenia (odejmowanie punktów i
-                  wpis w historii).
-                </p>
-                <div className="vas-lender-api-demo">
-                  <label className="vas-field">
-                    <span className="vas-field-label">Klient</span>
-                    <select
-                      className="vas-input"
-                      value={lenderApiDemoClientId}
-                      onChange={(e) => setLenderApiDemoClientId(e.target.value)}
-                    >
-                      {BASE_CLIENTS.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.loanNumber}) —{' '}
-                          {pointsByClient[c.id] ?? c.basePoints} pkt
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="vas-field">
-                    <span className="vas-field-label">Opcja wykorzystania</span>
-                    <select
-                      className="vas-input"
-                      value={lenderApiDemoOptionId}
-                      onChange={(e) => setLenderApiDemoOptionId(e.target.value)}
-                    >
-                      {LENDER_POINTS_CATALOG.filter(
-                        (o) =>
-                          isProlongationCatalogId(o.id) || o.id === 'r4' || o.id === 'r5',
-                      ).map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.label} — {o.pointsCost} pkt
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    className="vas-btn vas-btn-secondary"
-                    onClick={() =>
-                      confirmRedemptionViaLenderApi(
-                        lenderApiDemoClientId,
-                        lenderApiDemoOptionId,
-                      )
-                    }
-                  >
-                    Wyślij potwierdzenie API (demo)
-                  </button>
-                </div>
-              </div>
+              <LenderDashboard lenderName={LENDER.name} />
             </section>
           </main>
         </div>

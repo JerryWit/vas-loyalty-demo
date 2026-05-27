@@ -1,0 +1,213 @@
+.ld-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ld-card {
+  background: var(--vas-white);
+  border-radius: var(--vas-radius-lg);
+  padding: 22px 20px;
+  box-shadow: var(--vas-card-shadow);
+}
+
+.ld-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.ld-kpi-grid--row2 {
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .ld-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ld-kpi .vas-kpi-value {
+  font-size: 26px;
+}
+
+.ld-kpi-sep {
+  font-weight: 500;
+  color: var(--vas-slate);
+  margin: 0 2px;
+}
+
+.ld-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ld-section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--vas-navy-900);
+}
+
+.ld-section-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vas-navy-700);
+  border: 1px solid var(--vas-border);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.ld-table-wrap {
+  overflow-x: auto;
+  margin: 0 -4px;
+}
+
+.ld-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ld-table thead th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--vas-slate);
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--vas-border);
+  white-space: nowrap;
+}
+
+.ld-table tbody td {
+  padding: 14px 12px 14px 0;
+  border-bottom: 1px solid var(--vas-border);
+  vertical-align: middle;
+  color: var(--vas-ink);
+}
+
+.ld-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ld-days-urgent {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.ld-td-dot {
+  text-align: center;
+  width: 48px;
+}
+
+.ld-prolong-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.ld-prolong-dot--green {
+  background: #22c55e;
+  box-shadow: 0 0 0 2px #dcfce7;
+}
+
+.ld-prolong-dot--yellow {
+  background: #eab308;
+  box-shadow: 0 0 0 2px #fef9c3;
+}
+
+.ld-prolong-dot--gray {
+  background: #94a3b8;
+  box-shadow: 0 0 0 2px #f1f5f9;
+}
+
+.ld-chart-wrap {
+  margin-top: 4px;
+}
+
+.ld-td-nowrap {
+  white-space: nowrap;
+}
+
+.ld-event-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.ld-event-badge--purchase {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ld-event-badge--prolong {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.ld-event-badge--expiry {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ld-webhook-desc {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--vas-slate);
+}
+
+.ld-webhook-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 640px) {
+  .ld-webhook-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ld-webhook-output {
+  margin-top: 16px;
+}
+
+.ld-webhook-code {
+  margin: 0 0 12px;
+  padding: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: var(--vas-radius-md);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+}
+
+.vas-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
