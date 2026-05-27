@@ -6,8 +6,8 @@ const STATS_ROW_1 = [
     id: 'clients',
     label: 'Klienci aktywni w tym miesiącu',
     foot: 'Klienci aktywni łącznie od początku współpracy',
-    value: '3',
-    footValue: '8',
+    value: '1',
+    footValue: '1',
   },
   {
     id: 'vas',
@@ -19,9 +19,9 @@ const STATS_ROW_1 = [
   {
     id: 'conversion',
     label: 'Konwersja',
-    foot: 'Klienci na portalu vs zakup VAS',
-    value: '2 z 5',
-    footValue: '40%',
+    foot: 'Klienci w LoyalVAS vs wszyscy klienci pożyczkodawcy',
+    value: '1 z 3',
+    footValue: '33%',
   },
 ]
 
@@ -51,35 +51,13 @@ const CLIENTS = [
   {
     name: 'Jan Kowalski',
     loanNumber: 'SP-1001',
+    firstLoginAt: '25.05.2026 17:13',
     daysToRepayment: 8,
     vasCount: 1,
     pointsEarned: 65,
     pointsUsed: 0,
     pointsAvailable: 65,
-    loyaltyActive: true,
     commissionPts: 102,
-  },
-  {
-    name: 'Anna Nowak',
-    loanNumber: 'SP-1002',
-    daysToRepayment: 22,
-    vasCount: 0,
-    pointsEarned: 0,
-    pointsUsed: 0,
-    pointsAvailable: 0,
-    loyaltyActive: false,
-    commissionPts: 0,
-  },
-  {
-    name: 'Piotr Zieliński',
-    loanNumber: 'SP-1003',
-    daysToRepayment: 5,
-    vasCount: 0,
-    pointsEarned: 0,
-    pointsUsed: 0,
-    pointsAvailable: 0,
-    loyaltyActive: false,
-    commissionPts: 0,
   },
 ]
 
@@ -151,19 +129,6 @@ const WEBHOOK_BENEFITS = [
     requested_value: 500,
   },
 ]
-
-function LoyalVasActivity({ active }) {
-  const label = active ? 'Aktywny' : 'Nie logował się'
-  return (
-    <span className="ld-loyalty-activity">
-      <span
-        className={`ld-activity-dot ${active ? 'ld-activity-dot--active' : 'ld-activity-dot--inactive'}`}
-        aria-hidden
-      />
-      <span className="ld-activity-label">{label}</span>
-    </span>
-  )
-}
 
 function SectionHead({ title, badge }) {
   return (
@@ -271,19 +236,19 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
       </section>
 
       <section className="ld-card" aria-labelledby="ld-clients-heading">
-        <SectionHead title={`Klienci ${lenderName}`} badge="CRM" />
+        <SectionHead title="Klienci aktywni w LoyalVAS" badge="CRM" />
         <div className="ld-table-wrap">
           <table className="ld-table">
             <thead>
               <tr>
                 <th>Klient</th>
                 <th>Numer pożyczki</th>
+                <th>Pierwsze logowanie</th>
                 <th>Dni do spłaty</th>
                 <th>Zakupione VAS</th>
                 <th>Punkty zdobyte</th>
                 <th>Punkty wykorzystane</th>
                 <th>Punkty dostępne</th>
-                <th>Aktywność w LoyalVAS</th>
                 <th>Punkty Pożyczkodawcy</th>
               </tr>
             </thead>
@@ -294,6 +259,7 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
                     <strong className="vas-text-strong">{row.name}</strong>
                   </td>
                   <td>{row.loanNumber}</td>
+                  <td className="ld-td-nowrap">{row.firstLoginAt}</td>
                   <td>
                     <span
                       className={
@@ -308,9 +274,6 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
                   <td>{row.pointsUsed} pkt</td>
                   <td>
                     <strong>{row.pointsAvailable} pkt</strong>
-                  </td>
-                  <td>
-                    <LoyalVasActivity active={row.loyaltyActive} />
                   </td>
                   <td>{row.commissionPts} pkt</td>
                 </tr>
