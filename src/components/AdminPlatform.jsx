@@ -51,19 +51,6 @@ const DEMO_STATIC = {
   ],
 }
 
-const TELEMEDI_ROWS = [
-  { variant: 'Telemedycyna Basic (500–999 zł)', count: 3, revenue: '360 zł', platform: '306 zł' },
-  {
-    variant: 'Telemedycyna Rozszerzona (1000–1999 zł)',
-    count: 2,
-    revenue: '480 zł',
-    platform: '408 zł',
-  },
-  { variant: 'Telemedycyna Premium (2000+ zł)', count: 1, revenue: '400 zł', platform: '340 zł' },
-]
-
-const TELEMEDI_TOTAL = { count: 6, revenue: '1 240 zł', platform: '1 054 zł' }
-
 const EVENT_FILTERS = [
   { id: 'all', label: 'Wszystkie' },
   { id: 'failed', label: 'Failed webhooki' },
@@ -96,6 +83,58 @@ function getNextMonthFirstDayLabel() {
     month: '2-digit',
     year: 'numeric',
   })
+}
+
+function resolveTuName(purchase, productMetaByName) {
+  const fallbackTu = productMetaByName[purchase.productName]?.tuName
+  return purchase.tuName ?? fallbackTu ?? 'Inne TU'
+}
+
+function isCurrentMonth(iso) {
+  if (!iso) return false
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+}
+
+function getPurchasePlatformRevenue(purchase) {
+  return purchase.lenderPoints ?? 0
+}
+
+function buildInsuranceByTu(purchases, productMetaByName) {
+  const map = new Map()
+  purchases
+    .filter((purchase) => purchase.category === 'insurance')
+    .forEach((purchase) => {
+      const tuName = resolveTuName(purchase, productMetaByName)
+      if (!map.has(tuName)) {
+        map.set(tuName, { tuName, rows: new Map(), policyCount: 0, gross: 0 })
+      }
+      const tu = map.get(tuName)
+      const productKey = purchase.productName ?? purchase.productId ?? 'Nieznany produkt'
+      const row = tu.rows.get(productKey) ?? {
+        product: productKey,
+        count: 0,
+        gross: 0,
+        platform: 0,
+      }
+      row.count += 1
+      row.gross += purchase.pricePln ?? 0
+      row.platform += getPurchasePlatformRevenue(purchase)
+      tu.rows.set(productKey, row)
+      tu.policyCount += 1
+      tu.gross += purchase.pricePln ?? 0
+    })
+
+  return Array.from(map.values())
+    .map((tu) => ({
+      tuName: tu.tuName,
+      rows: Array.from(tu.rows.values()).sort((a, b) => b.count - a.count),
+      policyCount: tu.policyCount,
+      gross: tu.gross,
+    }))
+    .sort((a, b) => a.tuName.localeCompare(b.tuName))
 }
 
 function buildLiveKpis(purchases, lenderRedemptions, lenderPointsTotal) {
@@ -206,47 +245,33 @@ export default function AdminPlatform({
       }
       current.count += 1
       current.gross += purchase.pricePln ?? 0
-      current.platform += purchase.lenderPoints ?? 0
+      current.platform += getPurchasePlatformRevenue(purchase)
       map.set(key, current)
     })
     return Array.from(map.values()).sort((a, b) => b.count - a.count)
   }, [purchases])
 
-  const insuranceByTu = useMemo(() => {
-    const map = new Map()
-    purchases
-      .filter((purchase) => purchase.category === 'insurance')
-      .forEach((purchase) => {
-        const fallbackTu = productMetaByName[purchase.productName]?.tuName
-        const tuName = purchase.tuName ?? fallbackTu ?? 'Inne TU'
-        if (!map.has(tuName)) {
-          map.set(tuName, { tuName, rows: new Map(), policyCount: 0, gross: 0 })
-        }
-        const tu = map.get(tuName)
-        const productKey = purchase.productName ?? purchase.productId ?? 'Nieznany produkt'
-        const row = tu.rows.get(productKey) ?? {
-          product: productKey,
-          count: 0,
-          gross: 0,
-          platform: 0,
-        }
-        row.count += 1
-        row.gross += purchase.pricePln ?? 0
-        row.platform += purchase.lenderPoints ?? 0
-        tu.rows.set(productKey, row)
-        tu.policyCount += 1
-        tu.gross += purchase.pricePln ?? 0
-      })
+  const telemedicineSalesByProduct = useMemo(
+    () =>
+      salesByProduct.filter(
+        (row) => productMetaByName[row.product]?.category !== 'insurance',
+      ),
+    [salesByProduct, productMetaByName],
+  )
 
-    return Array.from(map.values())
-      .map((tu) => ({
-        tuName: tu.tuName,
-        rows: Array.from(tu.rows.values()).sort((a, b) => b.count - a.count),
-        policyCount: tu.policyCount,
-        gross: tu.gross,
-      }))
-      .sort((a, b) => a.tuName.localeCompare(b.tuName))
-  }, [purchases, productMetaByName])
+  const insuranceByTu = useMemo(
+    () => buildInsuranceByTu(purchases, productMetaByName),
+    [purchases, productMetaByName],
+  )
+
+  const insuranceSettlementByTu = useMemo(
+    () =>
+      buildInsuranceByTu(
+        purchases.filter((purchase) => isCurrentMonth(purchase.at)),
+        productMetaByName,
+      ),
+    [purchases, productMetaByName],
+  )
 
   const csvDeadlineLabel = useMemo(() => getNextMonthFirstDayLabel(), [])
 
@@ -254,10 +279,12 @@ export default function AdminPlatform({
     const header = ['Data', 'KlientID', 'Produkt', 'SkladkaBruttoPLN', 'TU']
     const lines = [header.join(';')]
     purchases
-      .filter((purchase) => purchase.category === 'insurance')
+      .filter(
+        (purchase) =>
+          purchase.category === 'insurance' && isCurrentMonth(purchase.at),
+      )
       .forEach((purchase) => {
-        const fallbackTu = productMetaByName[purchase.productName]?.tuName
-        const tuName = purchase.tuName ?? fallbackTu ?? 'Inne TU'
+        const tuName = resolveTuName(purchase, productMetaByName)
         if (tuName !== tu.tuName) return
         lines.push(
           [
@@ -520,7 +547,7 @@ export default function AdminPlatform({
               </tr>
             </thead>
             <tbody>
-              {salesByProduct.map((row) => (
+              {telemedicineSalesByProduct.map((row) => (
                 <tr key={row.product}>
                   <td>{row.product}</td>
                   <td>{row.count}</td>
@@ -530,19 +557,25 @@ export default function AdminPlatform({
               ))}
               <tr className="ap-table-total">
                 <td>
-                  <strong>Razem</strong>
-                </td>
-                <td>
-                  <strong>{salesByProduct.reduce((sum, row) => sum + row.count, 0)}</strong>
+                  <strong>Razem Telemedi</strong>
                 </td>
                 <td>
                   <strong>
-                    {formatMoney(salesByProduct.reduce((sum, row) => sum + row.gross, 0))}
+                    {telemedicineSalesByProduct.reduce((sum, row) => sum + row.count, 0)}
                   </strong>
                 </td>
                 <td>
                   <strong>
-                    {formatMoney(salesByProduct.reduce((sum, row) => sum + row.platform, 0))}
+                    {formatMoney(
+                      telemedicineSalesByProduct.reduce((sum, row) => sum + row.gross, 0),
+                    )}
+                  </strong>
+                </td>
+                <td>
+                  <strong>
+                    {formatMoney(
+                      telemedicineSalesByProduct.reduce((sum, row) => sum + row.platform, 0),
+                    )}
                   </strong>
                 </td>
               </tr>
@@ -598,7 +631,7 @@ export default function AdminPlatform({
 
       <SectionCard title="Rozliczenia z ubezpieczycielami" badge="TU">
         <div className="ap-tu-cards">
-          {insuranceByTu.map((tu) => (
+          {insuranceSettlementByTu.map((tu) => (
             <article key={`settlement-${tu.tuName}`} className="ap-tu-card">
               <h3 className="ap-tu-card-title">{tu.tuName}</h3>
               <ul className="ap-tu-card-list">
@@ -699,17 +732,12 @@ export default function AdminPlatform({
               Sprzedaż VAS: <strong>{formatMoney(settlementModel.totalVasRevenue)}</strong>
             </li>
             <li>
-              Prowizja pożyczkodawcy {settlementModel.lenderName} (
-              {settlementModel.commissionPercent}%):{' '}
-              <strong>{formatMoney(settlementModel.lenderCommissionTotal)}</strong>
+              Przychód z prowizji agencyjnej:{' '}
+              <strong>{formatMoney(settlementModel.platformNetRevenue)}</strong>
             </li>
             <li>
               Punkty Pożyczkodawcy:{' '}
               <strong>{settlementModel.lenderPointsTotal ?? 0}</strong>
-            </li>
-            <li>
-              Pozostałość na platformę:{' '}
-              <strong>{formatMoney(settlementModel.platformNetRevenue)}</strong>
             </li>
           </ul>
         </div>
