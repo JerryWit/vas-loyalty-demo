@@ -97,6 +97,10 @@ function getDaysToRepayment(client, repaymentExtraDays) {
   return client.repaymentDaysFromToday + extra
 }
 
+function getRedemptionPointsCost(redemption) {
+  return redemption.pointsCost ?? redemption.points ?? 0
+}
+
 function SectionHead({ title, badge }) {
   return (
     <div className="ld-section-head">
@@ -161,7 +165,10 @@ export default function LenderDashboard({
           (s, p) => s + (p.pointsEarned ?? 0),
           0,
         )
-        const pointsUsed = clientRedemptions.reduce((s, r) => s + (r.points ?? 0), 0)
+        const pointsUsed = clientRedemptions.reduce(
+          (s, r) => s + getRedemptionPointsCost(r),
+          0,
+        )
         const commissionPts = clientPurchases.reduce(
           (s, p) => s + (p.lenderPoints ?? 0),
           0,
@@ -174,7 +181,7 @@ export default function LenderDashboard({
           vasCount: clientPurchases.length,
           pointsEarned,
           pointsUsed,
-          pointsAvailable: pointsByClient[c.id] ?? c.basePoints,
+          pointsAvailable: pointsByClient[c.id] ?? 0,
           commissionPts,
         }
       })
@@ -213,7 +220,7 @@ export default function LenderDashboard({
 
   const statsRow2 = useMemo(() => {
     const granted = purchases.reduce((s, p) => s + (p.pointsEarned ?? 0), 0)
-    const used = lenderRedemptions.reduce((s, r) => s + (r.points ?? 0), 0)
+    const used = lenderRedemptions.reduce((s, r) => s + getRedemptionPointsCost(r), 0)
     return [
       { ...STATS_ROW_2_TEMPLATE[0], value: `${granted} pkt` },
       { ...STATS_ROW_2_TEMPLATE[1], value: `${used} pkt` },
@@ -244,7 +251,7 @@ export default function LenderDashboard({
         loanNumber: c?.loanNumber ?? '—',
         type: isProlong ? 'prolong' : 'redeem',
         typeLabel: r.optionLabel ?? 'Wymiana punktów',
-        points: `−${r.points ?? 0} pkt`,
+        points: `−${getRedemptionPointsCost(r)} pkt`,
         commission: '—',
         at: r.at,
       }
@@ -400,7 +407,7 @@ export default function LenderDashboard({
               {transactions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="ld-empty">
-                    Brak transakcji punktowych.
+                    Brak transakcji.
                   </td>
                 </tr>
               ) : (

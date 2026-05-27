@@ -22,7 +22,7 @@ const BASE_CLIENTS = [
     name: 'Jan Kowalski',
     loanNumber: 'SP-1001',
     loanAmount: 2500,
-    basePoints: 120,
+    basePoints: 0,
     /** Dni do terminu spłaty (demo, liczone od dziś). */
     repaymentDaysFromToday: 5,
   },
@@ -31,7 +31,7 @@ const BASE_CLIENTS = [
     name: 'Anna Nowak',
     loanNumber: 'SP-1002',
     loanAmount: 1800,
-    basePoints: 60,
+    basePoints: 0,
     repaymentDaysFromToday: 12,
   },
   {
@@ -840,11 +840,7 @@ export default function App() {
   }
 
   const resetDemo = () => {
-    const next = {}
-    BASE_CLIENTS.forEach((c) => {
-      next[c.id] = c.basePoints
-    })
-    setPointsByClient(next)
+    setPointsByClient({})
     setPurchases([])
     setLenderRedemptions([])
     setRepaymentExtraDays({})
