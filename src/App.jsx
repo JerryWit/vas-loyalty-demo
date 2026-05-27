@@ -611,6 +611,7 @@ export default function App() {
       productId: product.id,
       productName: product.name,
       category: product.category,
+      tuName: product.tuName,
       pricePln: product.pricePln,
       pointsEarned,
       lenderPoints,

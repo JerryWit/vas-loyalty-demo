@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { VAS_PRODUCTS } from '../data/vasCatalog.js'
 import './AdminPlatform.css'
 
 const PERIOD_OPTIONS = [
@@ -63,24 +64,6 @@ const TELEMEDI_ROWS = [
 
 const TELEMEDI_TOTAL = { count: 6, revenue: '1 240 zł', platform: '1 054 zł' }
 
-const TU_ALFA_ROWS = [
-  { product: 'CPI', variant: 'Wariant 1', count: 4, premium: '480 zł', platform: '96 zł' },
-  { product: 'Życie NNW', variant: 'Wariant 1', count: 2, premium: '240 zł', platform: '48 zł' },
-  { product: 'Życie NNW', variant: 'Wariant 2', count: 1, premium: '180 zł', platform: '36 zł' },
-]
-
-const TU_ALFA_TOTAL = { count: 7, premium: '900 zł', platform: '180 zł' }
-
-const TU_BETA_ROWS = [
-  { product: 'Home Assistance', variant: 'Wariant 1', count: 3, premium: '360 zł', platform: '72 zł' },
-  { product: 'Home Assistance', variant: 'Wariant 2', count: 1, premium: '180 zł', platform: '36 zł' },
-  { product: 'Home Assistance', variant: 'Wariant 3', count: 1, premium: '240 zł', platform: '48 zł' },
-]
-
-const TU_BETA_TOTAL = { count: 5, premium: '780 zł', platform: '156 zł' }
-
-const INSURANCE_GRAND_TOTAL = { count: 12, premium: '1 680 zł', platform: '336 zł' }
-
 const EVENT_FILTERS = [
   { id: 'all', label: 'Wszystkie' },
   { id: 'failed', label: 'Failed webhooki' },
@@ -103,6 +86,16 @@ function formatTxDate(iso) {
 
 function getRedemptionPointsCost(redemption) {
   return redemption.pointsCost ?? redemption.points ?? 0
+}
+
+function getNextMonthFirstDayLabel() {
+  const now = new Date()
+  const firstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  return firstDay.toLocaleDateString('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
 }
 
 function buildLiveKpis(purchases, lenderRedemptions, lenderPointsTotal) {
@@ -195,6 +188,100 @@ export default function AdminPlatform({
       (a, b) => new Date(b.at) - new Date(a.at),
     )
   }, [purchases, lenderRedemptions, clientById, settlementModel?.lenderName])
+
+  const productMetaByName = useMemo(
+    () => Object.fromEntries(VAS_PRODUCTS.map((p) => [p.name, p])),
+    [],
+  )
+
+  const salesByProduct = useMemo(() => {
+    const map = new Map()
+    purchases.forEach((purchase) => {
+      const key = purchase.productName ?? purchase.productId ?? 'Nieznany produkt'
+      const current = map.get(key) ?? {
+        product: key,
+        count: 0,
+        gross: 0,
+        platform: 0,
+      }
+      current.count += 1
+      current.gross += purchase.pricePln ?? 0
+      current.platform += purchase.lenderPoints ?? 0
+      map.set(key, current)
+    })
+    return Array.from(map.values()).sort((a, b) => b.count - a.count)
+  }, [purchases])
+
+  const insuranceByTu = useMemo(() => {
+    const map = new Map()
+    purchases
+      .filter((purchase) => purchase.category === 'insurance')
+      .forEach((purchase) => {
+        const fallbackTu = productMetaByName[purchase.productName]?.tuName
+        const tuName = purchase.tuName ?? fallbackTu ?? 'Inne TU'
+        if (!map.has(tuName)) {
+          map.set(tuName, { tuName, rows: new Map(), policyCount: 0, gross: 0 })
+        }
+        const tu = map.get(tuName)
+        const productKey = purchase.productName ?? purchase.productId ?? 'Nieznany produkt'
+        const row = tu.rows.get(productKey) ?? {
+          product: productKey,
+          count: 0,
+          gross: 0,
+          platform: 0,
+        }
+        row.count += 1
+        row.gross += purchase.pricePln ?? 0
+        row.platform += purchase.lenderPoints ?? 0
+        tu.rows.set(productKey, row)
+        tu.policyCount += 1
+        tu.gross += purchase.pricePln ?? 0
+      })
+
+    return Array.from(map.values())
+      .map((tu) => ({
+        tuName: tu.tuName,
+        rows: Array.from(tu.rows.values()).sort((a, b) => b.count - a.count),
+        policyCount: tu.policyCount,
+        gross: tu.gross,
+      }))
+      .sort((a, b) => a.tuName.localeCompare(b.tuName))
+  }, [purchases, productMetaByName])
+
+  const csvDeadlineLabel = useMemo(() => getNextMonthFirstDayLabel(), [])
+
+  const downloadTuCsv = (tu) => {
+    const header = ['Data', 'KlientID', 'Produkt', 'SkladkaBruttoPLN', 'TU']
+    const lines = [header.join(';')]
+    purchases
+      .filter((purchase) => purchase.category === 'insurance')
+      .forEach((purchase) => {
+        const fallbackTu = productMetaByName[purchase.productName]?.tuName
+        const tuName = purchase.tuName ?? fallbackTu ?? 'Inne TU'
+        if (tuName !== tu.tuName) return
+        lines.push(
+          [
+            purchase.at ?? '',
+            purchase.clientId ?? '',
+            purchase.productName ?? '',
+            String(purchase.pricePln ?? 0),
+            tuName,
+          ].join(';'),
+        )
+      })
+
+    const blob = new Blob([lines.join('\n')], {
+      type: 'text/csv;charset=utf-8;',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `polisy-${tu.tuName.replaceAll(' ', '-').toLowerCase()}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   const lenderTotals = useMemo(() => {
     const rows = DEMO_STATIC.lenders
@@ -426,33 +513,37 @@ export default function AdminPlatform({
           <table className="ap-table">
             <thead>
               <tr>
-                <th>Wariant</th>
+                <th>Produkt</th>
                 <th>Liczba sprzedaży</th>
                 <th>Przychód</th>
-                <th>Przychód platformy (85%)</th>
+                <th>Przychód platformy</th>
               </tr>
             </thead>
             <tbody>
-              {TELEMEDI_ROWS.map((row) => (
-                <tr key={row.variant}>
-                  <td>{row.variant}</td>
+              {salesByProduct.map((row) => (
+                <tr key={row.product}>
+                  <td>{row.product}</td>
                   <td>{row.count}</td>
-                  <td>{row.revenue}</td>
-                  <td>{row.platform}</td>
+                  <td>{formatMoney(row.gross)}</td>
+                  <td>{formatMoney(row.platform)}</td>
                 </tr>
               ))}
               <tr className="ap-table-total">
                 <td>
-                  <strong>Razem Telemedi</strong>
+                  <strong>Razem</strong>
                 </td>
                 <td>
-                  <strong>{TELEMEDI_TOTAL.count}</strong>
+                  <strong>{salesByProduct.reduce((sum, row) => sum + row.count, 0)}</strong>
                 </td>
                 <td>
-                  <strong>{TELEMEDI_TOTAL.revenue}</strong>
+                  <strong>
+                    {formatMoney(salesByProduct.reduce((sum, row) => sum + row.gross, 0))}
+                  </strong>
                 </td>
                 <td>
-                  <strong>{TELEMEDI_TOTAL.platform}</strong>
+                  <strong>
+                    {formatMoney(salesByProduct.reduce((sum, row) => sum + row.platform, 0))}
+                  </strong>
                 </td>
               </tr>
             </tbody>
@@ -460,150 +551,79 @@ export default function AdminPlatform({
         </div>
 
         <h3 className="ap-subsection-title">Ubezpieczenia per ubezpieczyciel</h3>
-        <h4 className="ap-tu-title">TU Alfa</h4>
-        <div className="ap-table-wrap ap-mb-md">
-          <table className="ap-table">
-            <thead>
-              <tr>
-                <th>Produkt</th>
-                <th>Wariant</th>
-                <th>Liczba polis</th>
-                <th>Składka brutto</th>
-                <th>Przychód platformy (prowizja agencyjna)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TU_ALFA_ROWS.map((row, i) => (
-                <tr key={i}>
-                  <td>{row.product}</td>
-                  <td>{row.variant}</td>
-                  <td>{row.count}</td>
-                  <td>{row.premium}</td>
-                  <td>{row.platform}</td>
-                </tr>
-              ))}
-              <tr className="ap-table-total">
-                <td colSpan={2}>
-                  <strong>Razem TU Alfa</strong>
-                </td>
-                <td>
-                  <strong>{TU_ALFA_TOTAL.count}</strong>
-                </td>
-                <td>
-                  <strong>{TU_ALFA_TOTAL.premium}</strong>
-                </td>
-                <td>
-                  <strong>{TU_ALFA_TOTAL.platform}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h4 className="ap-tu-title">TU Beta</h4>
-        <div className="ap-table-wrap ap-mb-md">
-          <table className="ap-table">
-            <thead>
-              <tr>
-                <th>Produkt</th>
-                <th>Wariant</th>
-                <th>Liczba polis</th>
-                <th>Składka brutto</th>
-                <th>Przychód platformy (prowizja agencyjna)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TU_BETA_ROWS.map((row, i) => (
-                <tr key={i}>
-                  <td>{row.product}</td>
-                  <td>{row.variant}</td>
-                  <td>{row.count}</td>
-                  <td>{row.premium}</td>
-                  <td>{row.platform}</td>
-                </tr>
-              ))}
-              <tr className="ap-table-total">
-                <td colSpan={2}>
-                  <strong>Razem TU Beta</strong>
-                </td>
-                <td>
-                  <strong>{TU_BETA_TOTAL.count}</strong>
-                </td>
-                <td>
-                  <strong>{TU_BETA_TOTAL.premium}</strong>
-                </td>
-                <td>
-                  <strong>{TU_BETA_TOTAL.platform}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className="ap-table-wrap">
-          <table className="ap-table">
-            <tbody>
-              <tr className="ap-table-total">
-                <td>
-                  <strong>Razem Ubezpieczenia</strong>
-                </td>
-                <td />
-                <td>
-                  <strong>{INSURANCE_GRAND_TOTAL.count}</strong>
-                </td>
-                <td>
-                  <strong>{INSURANCE_GRAND_TOTAL.premium}</strong>
-                </td>
-                <td>
-                  <strong>{INSURANCE_GRAND_TOTAL.platform}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {insuranceByTu.map((tu) => (
+          <div key={tu.tuName}>
+            <h4 className="ap-tu-title">{tu.tuName}</h4>
+            <div className="ap-table-wrap ap-mb-md">
+              <table className="ap-table">
+                <thead>
+                  <tr>
+                    <th>Produkt</th>
+                    <th>Liczba polis</th>
+                    <th>Składka brutto</th>
+                    <th>Przychód platformy (prowizja agencyjna)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tu.rows.map((row) => (
+                    <tr key={`${tu.tuName}-${row.product}`}>
+                      <td>{row.product}</td>
+                      <td>{row.count}</td>
+                      <td>{formatMoney(row.gross)}</td>
+                      <td>{formatMoney(row.platform)}</td>
+                    </tr>
+                  ))}
+                  <tr className="ap-table-total">
+                    <td>
+                      <strong>Razem {tu.tuName}</strong>
+                    </td>
+                    <td>
+                      <strong>{tu.policyCount}</strong>
+                    </td>
+                    <td>
+                      <strong>{formatMoney(tu.gross)}</strong>
+                    </td>
+                    <td>
+                      <strong>
+                        {formatMoney(tu.rows.reduce((sum, row) => sum + row.platform, 0))}
+                      </strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
       </SectionCard>
 
       <SectionCard title="Rozliczenia z ubezpieczycielami" badge="TU">
         <div className="ap-tu-cards">
-          <article className="ap-tu-card">
-            <h3 className="ap-tu-card-title">TU Alfa</h3>
-            <ul className="ap-tu-card-list">
-              <li>
-                Polisy w tym miesiącu: <strong>7</strong>
-              </li>
-              <li>
-                Składka do odprowadzenia: <strong>900 zł</strong>
-              </li>
-              <li>
-                Termin wysyłki CSV: <strong>05.06.2026</strong>
-              </li>
-            </ul>
-            <div className="ap-tu-card-foot">
-              <span className="ap-status-badge ap-status-badge--warn">Oczekuje na wysyłkę</span>
-              <button type="button" className="vas-btn vas-btn-secondary vas-btn-sm">
-                Generuj CSV
-              </button>
-            </div>
-          </article>
-          <article className="ap-tu-card">
-            <h3 className="ap-tu-card-title">TU Beta</h3>
-            <ul className="ap-tu-card-list">
-              <li>
-                Polisy w tym miesiącu: <strong>5</strong>
-              </li>
-              <li>
-                Składka do odprowadzenia: <strong>780 zł</strong>
-              </li>
-              <li>
-                Termin wysyłki CSV: <strong>05.06.2026</strong>
-              </li>
-            </ul>
-            <div className="ap-tu-card-foot">
-              <span className="ap-status-badge ap-status-badge--warn">Oczekuje na wysyłkę</span>
-              <button type="button" className="vas-btn vas-btn-secondary vas-btn-sm">
-                Generuj CSV
-              </button>
-            </div>
-          </article>
+          {insuranceByTu.map((tu) => (
+            <article key={`settlement-${tu.tuName}`} className="ap-tu-card">
+              <h3 className="ap-tu-card-title">{tu.tuName}</h3>
+              <ul className="ap-tu-card-list">
+                <li>
+                  Polisy w tym miesiącu: <strong>{tu.policyCount}</strong>
+                </li>
+                <li>
+                  Składka do odprowadzenia: <strong>{formatMoney(tu.gross)}</strong>
+                </li>
+                <li>
+                  Termin wysyłki CSV: <strong>{csvDeadlineLabel}</strong>
+                </li>
+              </ul>
+              <div className="ap-tu-card-foot">
+                <span className="ap-status-badge ap-status-badge--warn">Oczekuje na wysyłkę</span>
+                <button
+                  type="button"
+                  className="vas-btn vas-btn-secondary vas-btn-sm"
+                  onClick={() => downloadTuCsv(tu)}
+                >
+                  Generuj CSV
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       </SectionCard>
 

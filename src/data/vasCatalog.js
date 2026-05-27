@@ -19,9 +19,27 @@ export const VAS_PRODUCTS = [
   { id: 'p1', name: 'Telemedycyna Basic', category: 'telemedicine', pricePln: 120 },
   { id: 'p2', name: 'Telemedycyna Rozszerzona', category: 'telemedicine', pricePln: 240 },
   { id: 'p3', name: 'Telemedycyna Premium', category: 'telemedicine', pricePln: 400 },
-  { id: 'p4', name: 'Ubezpieczenie CPI', category: 'insurance', pricePln: 180 },
-  { id: 'p5', name: 'Ubezpieczenie Życie NNW', category: 'insurance', pricePln: 240 },
-  { id: 'p6', name: 'Home Assistance', category: 'insurance', pricePln: 160 },
+  {
+    id: 'p4',
+    name: 'Ubezpieczenie CPI',
+    category: 'insurance',
+    pricePln: 180,
+    tuName: 'TU Alfa',
+  },
+  {
+    id: 'p5',
+    name: 'Ubezpieczenie Życie NNW',
+    category: 'insurance',
+    pricePln: 240,
+    tuName: 'TU Alfa',
+  },
+  {
+    id: 'p6',
+    name: 'Home Assistance',
+    category: 'insurance',
+    pricePln: 160,
+    tuName: 'TU Beta',
+  },
 ]
 
 const PRODUCT_UI = {
