@@ -230,6 +230,10 @@
   overflow: auto;
 }
 
+.admin-config-form {
+  display: block;
+}
+
 .admin-config-page-title {
   margin: 0 0 24px;
   font-size: 22px;

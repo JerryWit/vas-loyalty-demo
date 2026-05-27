@@ -252,6 +252,13 @@ export default function AdminConfig() {
         <main className="admin-config-main">
           <h1 className="admin-config-page-title">Konfiguracja VAS</h1>
 
+          <form
+            className="admin-config-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSave()
+            }}
+          >
           <section className="admin-config-section" aria-labelledby="admin-lender-heading">
             <h2 id="admin-lender-heading">Wybór pożyczkodawcy</h2>
             <div className="admin-config-tabs" role="tablist">
@@ -479,11 +486,7 @@ export default function AdminConfig() {
             </table>
 
             <div className="admin-config-save-actions">
-              <button
-                type="button"
-                className="admin-config-btn admin-config-btn-save"
-                onClick={handleSave}
-              >
+              <button type="submit" className="admin-config-btn admin-config-btn-save">
                 Zapisz konfigurację
               </button>
               {saveMessage ? (
@@ -493,6 +496,7 @@ export default function AdminConfig() {
               ) : null}
             </div>
           </section>
+          </form>
         </main>
       </div>
     </div>
