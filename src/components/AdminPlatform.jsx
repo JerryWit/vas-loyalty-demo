@@ -10,45 +10,11 @@ const PERIOD_OPTIONS = [
 ]
 
 const DEMO_STATIC = {
-  alerts: {
-    failedWebhooks: 2,
-    expiringPoints: { pts: 45, clients: 3 },
-    csvDeadline: { days: 8, date: '05.06.2026' },
-  },
   kpis: {
     totalSales: '2 340 zł',
     netRevenue: '1 890 zł',
     avgBasket: '195 zł',
   },
-  lenders: [
-    {
-      name: 'EkspresPożyczka',
-      active: 5,
-      purchases: 4,
-      sales: '960 zł',
-      platform: '776 zł',
-      commissionPts: 412,
-      conversion: '80%',
-    },
-    {
-      name: 'KredytOK',
-      active: 4,
-      purchases: 3,
-      sales: '840 zł',
-      platform: '672 zł',
-      commissionPts: 360,
-      conversion: '75%',
-    },
-    {
-      name: 'PożyczkaPLUS',
-      active: 3,
-      purchases: 1,
-      sales: '540 zł',
-      platform: '432 zł',
-      commissionPts: 231,
-      conversion: '33%',
-    },
-  ],
 }
 
 const EVENT_FILTERS = [
@@ -310,17 +276,49 @@ export default function AdminPlatform({
     URL.revokeObjectURL(url)
   }
 
+  const lenderRows = useMemo(() => {
+    const map = new Map()
+    purchases.forEach((purchase) => {
+      const lenderId = purchase.lenderId ?? 'unknown'
+      const lenderName =
+        purchase.lenderName ?? settlementModel?.lenderName ?? purchase.lenderId ?? 'Nieznany'
+      const current = map.get(lenderId) ?? {
+        lenderId,
+        name: lenderName,
+        activeClients: new Set(),
+        purchases: 0,
+        sales: 0,
+        platform: 0,
+        commissionPts: 0,
+        conversion: '—',
+      }
+      if (purchase.clientId) current.activeClients.add(purchase.clientId)
+      current.purchases += 1
+      current.sales += purchase.pricePln ?? 0
+      current.platform += Math.round((purchase.pricePln ?? 0) * 0.85)
+      current.commissionPts += purchase.lenderPoints ?? 0
+      map.set(lenderId, current)
+    })
+
+    return Array.from(map.values())
+      .map((row) => ({
+        ...row,
+        active: row.activeClients.size,
+      }))
+      .sort((a, b) => b.purchases - a.purchases)
+  }, [purchases, settlementModel?.lenderName])
+
   const lenderTotals = useMemo(() => {
-    const rows = DEMO_STATIC.lenders
+    const rows = lenderRows
     return {
       active: rows.reduce((s, r) => s + r.active, 0),
       purchases: rows.reduce((s, r) => s + r.purchases, 0),
-      sales: DEMO_STATIC.kpis.totalSales,
-      platform: DEMO_STATIC.kpis.netRevenue,
+      sales: rows.reduce((s, r) => s + r.sales, 0),
+      platform: rows.reduce((s, r) => s + r.platform, 0),
       commissionPts: rows.reduce((s, r) => s + r.commissionPts, 0),
-      conversion: '67%',
+      conversion: '—',
     }
-  }, [])
+  }, [lenderRows])
 
   const filteredOperations = useMemo(() => {
     if (eventFilter === 'all') return operations
@@ -389,9 +387,13 @@ export default function AdminPlatform({
     },
   ]
 
-  const { alerts } = DEMO_STATIC
-  const showAlerts =
-    alerts.failedWebhooks > 0 || alerts.expiringPoints || alerts.csvDeadline
+  const failedWebhookCount = useMemo(
+    () => lenderRedemptions.filter((r) => r.status === 'failed').length,
+    [lenderRedemptions],
+  )
+  const expiringPointsDemo = { pts: 45, clients: 3 }
+  const csvDeadlineDemo = { days: 8, date: '05.06.2026' }
+  const showAlerts = failedWebhookCount > 0 || expiringPointsDemo || csvDeadlineDemo
 
   return (
     <div className="ap-dashboard">
@@ -411,7 +413,7 @@ export default function AdminPlatform({
       {showAlerts ? (
         <SectionCard title="Alerty operacyjne" badge="LIVE">
           <div className="ap-alerts">
-            {alerts.failedWebhooks > 0 ? (
+            {failedWebhookCount > 0 ? (
               <button
                 type="button"
                 className="ap-alert ap-alert--danger"
@@ -421,12 +423,12 @@ export default function AdminPlatform({
                   ⚠
                 </span>
                 <span>
-                  Failed webhooki: <strong>{alerts.failedWebhooks}</strong> — wymagają ręcznej
+                  Failed webhooki: <strong>{failedWebhookCount}</strong> — wymagają ręcznej
                   obsługi
                 </span>
               </button>
             ) : null}
-            {alerts.expiringPoints ? (
+            {expiringPointsDemo ? (
               <div className="ap-alert ap-alert--warn">
                 <span className="ap-alert-icon" aria-hidden>
                   ⏳
@@ -434,19 +436,20 @@ export default function AdminPlatform({
                 <span>
                   Punkty wygasające w ciągu 30 dni:{' '}
                   <strong>
-                    {alerts.expiringPoints.pts} pkt ({alerts.expiringPoints.clients} klientów)
+                    {expiringPointsDemo.pts} pkt ({expiringPointsDemo.clients} klientów)
                   </strong>
+                  {' '}(przykład — w produkcji z bazy danych)
                 </span>
               </div>
             ) : null}
-            {alerts.csvDeadline ? (
+            {csvDeadlineDemo ? (
               <div className="ap-alert ap-alert--warn">
                 <span className="ap-alert-icon" aria-hidden>
                   📅
                 </span>
                 <span>
-                  Termin wysyłki CSV do TU: za <strong>{alerts.csvDeadline.days} dni</strong>{' '}
-                  (do {alerts.csvDeadline.date})
+                  Termin wysyłki CSV do TU: za <strong>{csvDeadlineDemo.days} dni</strong> (do{' '}
+                  {csvDeadlineDemo.date}) (przykład)
                 </span>
               </div>
             ) : null}
@@ -493,19 +496,27 @@ export default function AdminPlatform({
               </tr>
             </thead>
             <tbody>
-              {DEMO_STATIC.lenders.map((row) => (
-                <tr key={row.name}>
-                  <td>
-                    <strong>{row.name}</strong>
+              {lenderRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="ap-muted-cell">
+                    Brak transakcji w wybranym okresie.
                   </td>
-                  <td>{row.active}</td>
-                  <td>{row.purchases}</td>
-                  <td>{row.sales}</td>
-                  <td>{row.platform}</td>
-                  <td>{row.commissionPts} pkt</td>
-                  <td>{row.conversion}</td>
                 </tr>
-              ))}
+              ) : (
+                lenderRows.map((row) => (
+                  <tr key={row.lenderId}>
+                    <td>
+                      <strong>{row.name}</strong>
+                    </td>
+                    <td>{row.active}</td>
+                    <td>{row.purchases}</td>
+                    <td>{formatMoney(row.sales)}</td>
+                    <td>{formatMoney(row.platform)}</td>
+                    <td>{row.commissionPts} pkt</td>
+                    <td>{row.conversion}</td>
+                  </tr>
+                ))
+              )}
               <tr className="ap-table-total">
                 <td>
                   <strong>Razem</strong>
@@ -517,10 +528,10 @@ export default function AdminPlatform({
                   <strong>{lenderTotals.purchases}</strong>
                 </td>
                 <td>
-                  <strong>{lenderTotals.sales}</strong>
+                  <strong>{formatMoney(lenderTotals.sales)}</strong>
                 </td>
                 <td>
-                  <strong>{lenderTotals.platform}</strong>
+                  <strong>{formatMoney(lenderTotals.platform)}</strong>
                 </td>
                 <td>
                   <strong>{lenderTotals.commissionPts} pkt</strong>
