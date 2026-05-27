@@ -1,13 +1,4 @@
 import { useMemo, useState } from 'react'
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import './LenderDashboard.css'
 
 const STATS_ROW_1 = [
@@ -186,6 +177,31 @@ function SectionHead({ title, badge }) {
   )
 }
 
+function HorizontalBarChart({ data, colors }) {
+  const max = Math.max(...data.map((d) => d.count), 1)
+  return (
+    <ul className="ld-bar-chart" aria-label="Wykres popularności korzyści">
+      {data.map((item, index) => (
+        <li key={item.name} className="ld-bar-row">
+          <span className="ld-bar-label">{item.name}</span>
+          <div className="ld-bar-track" aria-hidden>
+            <div
+              className="ld-bar-fill"
+              style={{
+                width: `${(item.count / max) * 100}%`,
+                backgroundColor: colors[index % colors.length],
+              }}
+            />
+          </div>
+          <span className="ld-bar-value">
+            {item.count} {item.count === 1 ? 'wymiana' : 'wymian'}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
   const [webhookClientId, setWebhookClientId] = useState('SP-1001')
   const [webhookBenefitId, setWebhookBenefitId] = useState('prolongata_30')
@@ -324,30 +340,7 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
       <section className="ld-card" aria-labelledby="ld-chart-heading">
         <SectionHead title="Najpopularniejsze korzyści — od początku współpracy" />
         <div className="ld-chart-wrap">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart
-              data={BENEFIT_CHART_DATA}
-              layout="vertical"
-              margin={{ top: 4, right: 24, left: 8, bottom: 4 }}
-            >
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={130}
-                tick={{ fontSize: 12, fill: '#475569' }}
-              />
-              <Tooltip
-                formatter={(value) => [`${value} wymian`, 'Liczba']}
-                contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0' }}
-              />
-              <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={22}>
-                {BENEFIT_CHART_DATA.map((_, index) => (
-                  <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <HorizontalBarChart data={BENEFIT_CHART_DATA} colors={CHART_COLORS} />
         </div>
       </section>
 
