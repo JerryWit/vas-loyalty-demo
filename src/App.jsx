@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import LoginSMS from './components/LoginSMS.jsx'
 import LenderDashboard from './components/LenderDashboard.jsx'
+import AdminPlatform from './components/AdminPlatform.jsx'
 import './App.css'
 
 const STORAGE_KEY = 'vas-eksprespozyczka-demo-v1'
@@ -457,25 +458,6 @@ export default function App() {
     return rows
   }, [lenderPortalClient, lenderPortalPendingProlong])
 
-  const pendingProlongationsAdmin = useMemo(
-    () =>
-      lenderRedemptions
-        .filter((r) => r.prolongStatus === 'pending' && (r.prolongDays ?? 0) > 0)
-        .map((r) => {
-          const client = BASE_CLIENTS.find((c) => c.id === r.clientId)
-          const extra = repaymentExtraDays[r.clientId] ?? 0
-          return {
-            ...r,
-            client,
-            newRepaymentDate: client
-              ? getRepaymentDate(client, extra + r.prolongDays)
-              : null,
-          }
-        })
-        .sort((a, b) => new Date(b.at) - new Date(a.at)),
-    [lenderRedemptions, repaymentExtraDays],
-  )
-
   const lenderPortalDaysLeft = lenderPortalClient
     ? daysFromVisitToRepayment(
         lenderPortalClient,
@@ -565,28 +547,6 @@ export default function App() {
   const platformNetRevenue = useMemo(
     () => Math.max(0, totalVasRevenue - lenderCommissionTotal),
     [totalVasRevenue, lenderCommissionTotal],
-  )
-
-  const productStats = useMemo(() => {
-    const map = {}
-    VAS_PRODUCTS.forEach((pr) => {
-      map[pr.id] = { ...pr, count: 0, revenue: 0 }
-    })
-    purchases.forEach((p) => {
-      if (!map[p.productId]) return
-      map[p.productId].count += 1
-      map[p.productId].revenue += p.pricePln
-    })
-    return Object.values(map)
-  }, [purchases])
-
-  const loggedInClientCount = useMemo(() => {
-    return BASE_CLIENTS.filter((c) => (clientLogins[c.id]?.count ?? 0) > 0).length
-  }, [clientLogins])
-
-  const totalPointsRedeemed = useMemo(
-    () => lenderRedemptions.reduce((s, r) => s + r.points, 0),
-    [lenderRedemptions],
   )
 
   const handleLoanLogin = (e) => {
@@ -1737,213 +1697,38 @@ export default function App() {
                     Admin Platformy
                   </h1>
                   <p className="vas-lead">
-                    Pełna widoczność: sprzedaż VAS, przychód platformy, prowizja partnera (
-                    {LENDER.name}), aktywność klientów i rozliczenia (demo jednego partnera).
+                    Pełna widoczność: sprzedaż VAS, przychód platformy, punkty pożyczkodawców,
+                    alerty operacyjne i rozliczenia z TU (demo).
                   </p>
                 </div>
               </div>
 
-              <div className="vas-card vas-card-elevated vas-mt-lg">
-                <div className="vas-card-head">
-                  <h2 className="vas-h2">Potwierdzenia przedłużenia</h2>
-                  <span className="vas-badge vas-badge-navy">Demo</span>
-                </div>
-                <p className="vas-muted vas-mb-md">
-                  Po wykorzystaniu punktów na przedłużenie (7, 14 lub 30 dni) wniosek trafia do
-                  pożyczkodawcy. W portalu klienta potwierdzenie pojawia się automatycznie po kilku
-                  sekundach; tutaj możesz też ręcznie zatwierdzić oczekujący wniosek.
-                </p>
-                {pendingProlongationsAdmin.length === 0 ? (
-                  <p className="vas-muted">Brak wniosków oczekujących na potwierdzenie.</p>
-                ) : (
-                  <ul className="vas-pending-prolong-list">
-                    {pendingProlongationsAdmin.map((row) => (
-                      <li key={row.id} className="vas-pending-prolong-item">
-                        <div>
-                          <strong>{row.client?.name ?? row.clientId}</strong>
-                          <span className="vas-muted vas-text-sm">
-                            {' '}
-                            · {row.client?.loanNumber} · +{row.prolongDays} dni ·{' '}
-                            {formatDate(row.at)}
-                          </span>
-                          {row.newRepaymentDate ? (
-                            <div className="vas-text-sm vas-mt-sm">
-                              Termin spłaty po zatwierdzeniu:{' '}
-                              <strong>{formatDateOnly(row.newRepaymentDate)}</strong>
-                            </div>
-                          ) : null}
-                        </div>
-                        <button
-                          type="button"
-                          className="vas-btn vas-btn-primary"
-                          onClick={() => confirmProlongationByPlatform(row.id)}
-                        >
-                          Potwierdź zatwierdzenie pożyczkodawcy
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <AdminPlatform
+                formatMoney={formatMoney}
+                settlementModel={{
+                  totalVasRevenue,
+                  lenderCommissionTotal,
+                  platformNetRevenue,
+                  lenderName: LENDER.name,
+                  commissionPercent: LENDER.commissionPercent,
+                }}
+              />
 
-              <div className="vas-card vas-card-elevated vas-admin-config-cta">
+              <div className="vas-card vas-card-elevated vas-admin-config-cta vas-mt-lg">
                 <div className="vas-card-head">
                   <h2 className="vas-h2">Panel konfiguracji pożyczkodawców</h2>
                   <span className="vas-badge vas-badge-navy">LoyalVAS</span>
                 </div>
                 <p className="vas-muted vas-mb-md">
-                  Ustawienia produktów VAS, cen, punktów za zakup i przelicznika korzyści (KredytOK,
-                  Szybka Gotówka, PożyczkaPLUS) są w <strong>osobnym panelu administracyjnym</strong>
-                  — nie w tym widoku raportowym.
+                  Ustawienia produktów VAS, cen, punktów za zakup i przelicznika korzyści są w{' '}
+                  <strong>osobnym panelu administracyjnym</strong>.
                 </p>
                 <Link to="/admin" className="vas-btn vas-btn-primary">
                   Otwórz konfigurację → /admin
                 </Link>
                 <p className="vas-login-demo-hint vas-mt-sm">
-                  Logowanie do panelu: <strong>admin</strong> / hasło <strong>demo</strong>
+                  Logowanie: <strong>admin</strong> / <strong>demo</strong>
                 </p>
-              </div>
-
-              <div className="vas-kpi-grid">
-                <article className="vas-kpi vas-kpi-accent">
-                  <div className="vas-kpi-label">Całkowita sprzedaż VAS</div>
-                  <div className="vas-kpi-value">{formatMoney(totalVasRevenue)}</div>
-                  <div className="vas-kpi-foot">Przychód brutto z usług dodatkowych</div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Prowizja pożyczkodawcy</div>
-                  <div className="vas-kpi-value">{formatMoney(lenderCommissionTotal)}</div>
-                  <div className="vas-kpi-foot">
-                    {LENDER.commissionPercent}% dla {LENDER.name}
-                  </div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Przychód netto platformy</div>
-                  <div className="vas-kpi-value">{formatMoney(platformNetRevenue)}</div>
-                  <div className="vas-kpi-foot">Po odliczeniu prowizji partnera (model demo)</div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Klienci zalogowani (kiedykolwiek)</div>
-                  <div className="vas-kpi-value">{loggedInClientCount}</div>
-                  <div className="vas-kpi-foot">Z portalu klienta (symulacja)</div>
-                </article>
-              </div>
-
-              <div className="vas-kpi-grid vas-mt-md">
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Średnia wartość koszyka</div>
-                  <div className="vas-kpi-value">
-                    {purchases.length
-                      ? formatMoney(totalVasRevenue / purchases.length)
-                      : '—'}
-                  </div>
-                  <div className="vas-kpi-foot">Na transakcję</div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Punkty przyznane (VAS)</div>
-                  <div className="vas-kpi-value">
-                    {purchases.reduce((s, p) => s + p.pointsEarned, 0)} pkt
-                  </div>
-                  <div className="vas-kpi-foot">Nagrody lojalnościowe</div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Punkty wykorzystane (API)</div>
-                  <div className="vas-kpi-value">{totalPointsRedeemed} pkt</div>
-                  <div className="vas-kpi-foot">Potwierdzenia od pożyczkodawcy</div>
-                </article>
-                <article className="vas-kpi">
-                  <div className="vas-kpi-label">Klienci z wykorzystaniem</div>
-                  <div className="vas-kpi-value">
-                    {new Set(lenderRedemptions.map((r) => r.clientId)).size}
-                  </div>
-                  <div className="vas-kpi-foot">Unikalni użytkownicy</div>
-                </article>
-              </div>
-
-              <div className="vas-card vas-card-elevated vas-mt-lg">
-                <div className="vas-card-head">
-                  <h2 className="vas-h2">Udział produktów w przychodzie</h2>
-                  <span className="vas-badge vas-badge-green">SKU</span>
-                </div>
-                <div className="vas-admin-bars">
-                  {productStats.map((p) => {
-                    const max = Math.max(
-                      1,
-                      ...productStats.map((x) => x.revenue),
-                    )
-                    const w = Math.round((p.revenue / max) * 100)
-                    return (
-                      <div key={p.id} className="vas-bar-row">
-                        <div className="vas-bar-head">
-                          <span>
-                            {p.icon} {p.name}
-                          </span>
-                          <span className="vas-muted">
-                            {p.count} × · {formatMoney(p.revenue)}
-                          </span>
-                        </div>
-                        <div className="vas-bar-track">
-                          <div className="vas-bar-fill" style={{ width: `${w}%` }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="vas-grid-2 vas-mt-lg">
-                <div className="vas-card">
-                  <div className="vas-card-head">
-                    <h2 className="vas-h2">Rejestr operacji (skrót)</h2>
-                  </div>
-                  {purchases.length === 0 ? (
-                    <p className="vas-muted">Brak danych operacyjnych.</p>
-                  ) : (
-                    <div className="vas-table-wrap">
-                      <table className="vas-table">
-                        <thead>
-                          <tr>
-                            <th>Data</th>
-                            <th>Klient</th>
-                            <th>Produkt</th>
-                            <th>Kwota</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {purchases.slice(0, 15).map((row) => {
-                            const cl = BASE_CLIENTS.find((c) => c.id === row.clientId)
-                            return (
-                              <tr key={row.id}>
-                                <td>{formatDate(row.at)}</td>
-                                <td>{cl?.name ?? '—'}</td>
-                                <td>{row.productName}</td>
-                                <td>{formatMoney(row.pricePln)}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-                <div className="vas-card vas-card-tint">
-                  <div className="vas-card-head">
-                    <h2 className="vas-h2">Model rozliczeń (demo)</h2>
-                  </div>
-                  <ul className="vas-checklist">
-                    <li>
-                      Sprzedaż VAS: <strong>{formatMoney(totalVasRevenue)}</strong>
-                    </li>
-                    <li>
-                      Prowizja {LENDER.name} ({LENDER.commissionPercent}%):{' '}
-                      <strong>{formatMoney(lenderCommissionTotal)}</strong>
-                    </li>
-                    <li>
-                      Pozostałość na platformę:{' '}
-                      <strong>{formatMoney(platformNetRevenue)}</strong>
-                    </li>
-                  </ul>
-                </div>
               </div>
             </section>
           </main>
