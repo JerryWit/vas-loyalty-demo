@@ -18,7 +18,7 @@ const DEMO_BY_PERIOD = {
     kpis: {
       totalSales: '186 zł',
       netRevenue: '150 zł',
-      lenderPoints: '36 zł',
+      lenderPoints: '36 pkt',
       avgBasket: '93 zł',
       loggedIn: '2',
       withPurchase: '1',
@@ -60,7 +60,7 @@ const DEMO_BY_PERIOD = {
     kpis: {
       totalSales: '2 340 zł',
       netRevenue: '1 890 zł',
-      lenderPoints: '450 zł',
+      lenderPoints: '450 pkt',
       avgBasket: '195 zł',
       loggedIn: '12',
       withPurchase: '8',
@@ -112,7 +112,7 @@ const DEMO_BY_PERIOD = {
     kpis: {
       totalSales: '1 980 zł',
       netRevenue: '1 584 zł',
-      lenderPoints: '396 zł',
+      lenderPoints: '396 pkt',
       avgBasket: '180 zł',
       loggedIn: '10',
       withPurchase: '7',
@@ -154,7 +154,7 @@ const DEMO_BY_PERIOD = {
     kpis: {
       totalSales: '8 420 zł',
       netRevenue: '6 780 zł',
-      lenderPoints: '1 640 zł',
+      lenderPoints: '1 640 pkt',
       avgBasket: '188 zł',
       loggedIn: '28',
       withPurchase: '19',
@@ -345,7 +345,7 @@ export default function AdminPlatform({ settlementModel, formatMoney }) {
       id: 'lender',
       label: 'Punkty Pożyczkodawcy',
       value: data.kpis.lenderPoints,
-      foot: 'Suma punktów prowizyjnych przeliczona na zł',
+      foot: 'Suma punktów pożyczkodawcy w wybranym okresie',
     },
     {
       id: 'basket',
@@ -786,9 +786,13 @@ export default function AdminPlatform({ settlementModel, formatMoney }) {
               Sprzedaż VAS: <strong>{formatMoney(settlementModel.totalVasRevenue)}</strong>
             </li>
             <li>
-              Punkty Pożyczkodawcy {settlementModel.lenderName} (
+              Prowizja pożyczkodawcy {settlementModel.lenderName} (
               {settlementModel.commissionPercent}%):{' '}
               <strong>{formatMoney(settlementModel.lenderCommissionTotal)}</strong>
+            </li>
+            <li>
+              Punkty Pożyczkodawcy:{' '}
+              <strong>{settlementModel.lenderPointsTotal ?? 0}</strong>
             </li>
             <li>
               Pozostałość na platformę:{' '}

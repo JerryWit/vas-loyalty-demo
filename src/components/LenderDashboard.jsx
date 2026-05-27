@@ -1,63 +1,40 @@
 import { useMemo, useState } from 'react'
 import './LenderDashboard.css'
 
-const STATS_ROW_1 = [
+const STATS_ROW_1_TEMPLATE = [
   {
     id: 'clients',
     label: 'Klienci aktywni w tym miesiącu',
     foot: 'Klienci aktywni łącznie od początku współpracy',
-    value: '1',
-    footValue: '1',
   },
   {
     id: 'vas',
     label: 'Zakupy VAS w tym miesiącu',
     foot: 'Łącznie od początku współpracy',
-    value: '3',
-    footValue: '12',
   },
   {
     id: 'conversion',
     label: 'Konwersja',
     foot: 'Klienci w LoyalVAS vs wszyscy klienci pożyczkodawcy',
-    value: '1 z 3',
-    footValue: '33%',
   },
 ]
 
-const STATS_ROW_2 = [
+const STATS_ROW_2_TEMPLATE = [
   {
     id: 'granted',
     label: 'Punkty przyznane klientom',
     foot: 'Suma w tym miesiącu',
-    value: '65 pkt',
   },
   {
     id: 'used',
     label: 'Punkty wykorzystane przez klientów',
     foot: 'Suma w tym miesiącu',
-    value: '70 pkt',
   },
   {
     id: 'commission',
     label: 'Punkty Pożyczkodawcy',
     foot: 'Łącznie od początku współpracy',
-    value: '102 pkt',
     accent: true,
-  },
-]
-
-const CLIENTS = [
-  {
-    name: 'Jan Kowalski',
-    loanNumber: 'SP-1001',
-    firstLoginAt: '25.05.2026 17:13',
-    daysToRepayment: 8,
-    vasCount: 1,
-    pointsEarned: 65,
-    pointsUsed: 0,
-    pointsAvailable: 65,
-    commissionPts: 102,
   },
 ]
 
@@ -69,36 +46,6 @@ const BENEFIT_CHART_DATA = [
 ]
 
 const CHART_COLORS = ['#1e3a5f', '#2563eb', '#3b82f6', '#60a5fa']
-
-const TRANSACTIONS = [
-  {
-    date: '25.05.2026 17:13',
-    client: 'Jan Kowalski',
-    loanNumber: 'SP-1001',
-    type: 'purchase',
-    typeLabel: 'Zakup VAS',
-    points: '+65 pkt',
-    commission: '102 pkt',
-  },
-  {
-    date: '20.05.2026 09:45',
-    client: 'Jan Kowalski',
-    loanNumber: 'SP-1001',
-    type: 'prolong',
-    typeLabel: 'Wymiana na prolongatę 30 dni',
-    points: '−70 pkt',
-    commission: '—',
-  },
-  {
-    date: '01.05.2026 00:00',
-    client: 'Anna Nowak',
-    loanNumber: 'SP-1002',
-    type: 'expiry',
-    typeLabel: 'Wygaśnięcie punktów',
-    points: '−20 pkt',
-    commission: '—',
-  },
-]
 
 const WEBHOOK_CLIENTS = [
   { id: 'SP-1001', label: 'Jan Kowalski (SP-1001)' },
@@ -129,6 +76,26 @@ const WEBHOOK_BENEFITS = [
     requested_value: 500,
   },
 ]
+
+const PROLONG_CATALOG_IDS = new Set(['r1', 'r2', 'r3'])
+
+function formatTxDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getDaysToRepayment(client, repaymentExtraDays) {
+  const extra = repaymentExtraDays[client.id] ?? 0
+  return client.repaymentDaysFromToday + extra
+}
 
 function SectionHead({ title, badge }) {
   return (
@@ -164,11 +131,128 @@ function HorizontalBarChart({ data, colors }) {
   )
 }
 
-export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
+export default function LenderDashboard({
+  lenderName = 'EkspresPożyczka',
+  purchases = [],
+  lenderRedemptions = [],
+  pointsByClient = {},
+  lenderPointsTotal = 0,
+  clientLogins = {},
+  repaymentExtraDays = {},
+  baseClients = [],
+}) {
   const [webhookClientId, setWebhookClientId] = useState('SP-1001')
   const [webhookBenefitId, setWebhookBenefitId] = useState('prolongata_30')
   const [webhookVisible, setWebhookVisible] = useState(false)
   const [copyDone, setCopyDone] = useState(false)
+
+  const clientById = useMemo(
+    () => Object.fromEntries(baseClients.map((c) => [c.id, c])),
+    [baseClients],
+  )
+
+  const activeClients = useMemo(() => {
+    return baseClients
+      .filter((c) => (clientLogins[c.id]?.count ?? 0) > 0)
+      .map((c) => {
+        const clientPurchases = purchases.filter((p) => p.clientId === c.id)
+        const clientRedemptions = lenderRedemptions.filter((r) => r.clientId === c.id)
+        const pointsEarned = clientPurchases.reduce(
+          (s, p) => s + (p.pointsEarned ?? 0),
+          0,
+        )
+        const pointsUsed = clientRedemptions.reduce((s, r) => s + (r.points ?? 0), 0)
+        const commissionPts = clientPurchases.reduce(
+          (s, p) => s + (p.lenderPoints ?? 0),
+          0,
+        )
+        return {
+          name: c.name,
+          loanNumber: c.loanNumber,
+          firstLoginAt: formatTxDate(clientLogins[c.id]?.lastAt),
+          daysToRepayment: getDaysToRepayment(c, repaymentExtraDays),
+          vasCount: clientPurchases.length,
+          pointsEarned,
+          pointsUsed,
+          pointsAvailable: pointsByClient[c.id] ?? c.basePoints,
+          commissionPts,
+        }
+      })
+  }, [
+    baseClients,
+    clientLogins,
+    purchases,
+    lenderRedemptions,
+    pointsByClient,
+    repaymentExtraDays,
+  ])
+
+  const statsRow1 = useMemo(() => {
+    const activeCount = activeClients.length
+    const totalClients = baseClients.length || 1
+    const vasCount = purchases.length
+    const pct = Math.round((activeCount / totalClients) * 100)
+    return [
+      {
+        ...STATS_ROW_1_TEMPLATE[0],
+        value: String(activeCount),
+        footValue: String(activeCount),
+      },
+      {
+        ...STATS_ROW_1_TEMPLATE[1],
+        value: String(vasCount),
+        footValue: String(vasCount),
+      },
+      {
+        ...STATS_ROW_1_TEMPLATE[2],
+        value: `${activeCount} z ${totalClients}`,
+        footValue: `${pct}%`,
+      },
+    ]
+  }, [activeClients.length, baseClients.length, purchases.length])
+
+  const statsRow2 = useMemo(() => {
+    const granted = purchases.reduce((s, p) => s + (p.pointsEarned ?? 0), 0)
+    const used = lenderRedemptions.reduce((s, r) => s + (r.points ?? 0), 0)
+    return [
+      { ...STATS_ROW_2_TEMPLATE[0], value: `${granted} pkt` },
+      { ...STATS_ROW_2_TEMPLATE[1], value: `${used} pkt` },
+      { ...STATS_ROW_2_TEMPLATE[2], value: `${lenderPointsTotal} pkt` },
+    ]
+  }, [purchases, lenderRedemptions, lenderPointsTotal])
+
+  const transactions = useMemo(() => {
+    const purchaseRows = purchases.map((p) => {
+      const c = clientById[p.clientId]
+      return {
+        date: formatTxDate(p.at),
+        client: c?.name ?? '—',
+        loanNumber: c?.loanNumber ?? '—',
+        type: 'purchase',
+        typeLabel: 'Zakup VAS',
+        points: `+${p.pointsEarned ?? 0} pkt`,
+        commission: `${p.lenderPoints ?? 0} pkt`,
+        at: p.at,
+      }
+    })
+    const redemptionRows = lenderRedemptions.map((r) => {
+      const c = clientById[r.clientId]
+      const isProlong = PROLONG_CATALOG_IDS.has(r.catalogId)
+      return {
+        date: formatTxDate(r.at),
+        client: c?.name ?? '—',
+        loanNumber: c?.loanNumber ?? '—',
+        type: isProlong ? 'prolong' : 'redeem',
+        typeLabel: r.optionLabel ?? 'Wymiana punktów',
+        points: `−${r.points ?? 0} pkt`,
+        commission: '—',
+        at: r.at,
+      }
+    })
+    return [...purchaseRows, ...redemptionRows].sort(
+      (a, b) => new Date(b.at) - new Date(a.at),
+    )
+  }, [purchases, lenderRedemptions, clientById])
 
   const webhookPayload = useMemo(() => {
     const benefit = WEBHOOK_BENEFITS.find((b) => b.id === webhookBenefitId) ?? WEBHOOK_BENEFITS[1]
@@ -203,10 +287,10 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
     <div className="ld-dashboard">
       <section className="ld-card" aria-labelledby="ld-stats-heading">
         <h2 id="ld-stats-heading" className="vas-sr-only">
-          Statystyki
+          Statystyki — {lenderName}
         </h2>
         <div className="ld-kpi-grid">
-          {STATS_ROW_1.map((tile) => (
+          {statsRow1.map((tile) => (
             <article key={tile.id} className="vas-kpi ld-kpi">
               <div className="vas-kpi-label">{tile.label}</div>
               <div className="vas-kpi-value">{tile.value}</div>
@@ -222,7 +306,7 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
           ))}
         </div>
         <div className="ld-kpi-grid ld-kpi-grid--row2">
-          {STATS_ROW_2.map((tile) => (
+          {statsRow2.map((tile) => (
             <article
               key={tile.id}
               className={`vas-kpi ld-kpi ${tile.accent ? 'vas-kpi-accent' : ''}`}
@@ -253,31 +337,39 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
               </tr>
             </thead>
             <tbody>
-              {CLIENTS.map((row) => (
-                <tr key={row.loanNumber}>
-                  <td>
-                    <strong className="vas-text-strong">{row.name}</strong>
+              {activeClients.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="ld-empty">
+                    Brak klientów z logowaniem w LoyalVAS (demo).
                   </td>
-                  <td>{row.loanNumber}</td>
-                  <td className="ld-td-nowrap">{row.firstLoginAt}</td>
-                  <td>
-                    <span
-                      className={
-                        row.daysToRepayment < 14 ? 'ld-days-urgent' : undefined
-                      }
-                    >
-                      {row.daysToRepayment}
-                    </span>
-                  </td>
-                  <td>{row.vasCount}</td>
-                  <td>{row.pointsEarned} pkt</td>
-                  <td>{row.pointsUsed} pkt</td>
-                  <td>
-                    <strong>{row.pointsAvailable} pkt</strong>
-                  </td>
-                  <td>{row.commissionPts} pkt</td>
                 </tr>
-              ))}
+              ) : (
+                activeClients.map((row) => (
+                  <tr key={row.loanNumber}>
+                    <td>
+                      <strong className="vas-text-strong">{row.name}</strong>
+                    </td>
+                    <td>{row.loanNumber}</td>
+                    <td className="ld-td-nowrap">{row.firstLoginAt}</td>
+                    <td>
+                      <span
+                        className={
+                          row.daysToRepayment < 14 ? 'ld-days-urgent' : undefined
+                        }
+                      >
+                        {row.daysToRepayment}
+                      </span>
+                    </td>
+                    <td>{row.vasCount}</td>
+                    <td>{row.pointsEarned} pkt</td>
+                    <td>{row.pointsUsed} pkt</td>
+                    <td>
+                      <strong>{row.pointsAvailable} pkt</strong>
+                    </td>
+                    <td>{row.commissionPts} pkt</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -305,20 +397,28 @@ export default function LenderDashboard({ lenderName = 'EkspresPożyczka' }) {
               </tr>
             </thead>
             <tbody>
-              {TRANSACTIONS.map((row, i) => (
-                <tr key={i}>
-                  <td className="ld-td-nowrap">{row.date}</td>
-                  <td>{row.client}</td>
-                  <td>{row.loanNumber}</td>
-                  <td>
-                    <span className={`ld-event-badge ld-event-badge--${row.type}`}>
-                      {row.typeLabel}
-                    </span>
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="ld-empty">
+                    Brak transakcji punktowych.
                   </td>
-                  <td>{row.points}</td>
-                  <td>{row.commission}</td>
                 </tr>
-              ))}
+              ) : (
+                transactions.map((row) => (
+                  <tr key={`${row.at}-${row.type}-${row.loanNumber}`}>
+                    <td className="ld-td-nowrap">{row.date}</td>
+                    <td>{row.client}</td>
+                    <td>{row.loanNumber}</td>
+                    <td>
+                      <span className={`ld-event-badge ld-event-badge--${row.type}`}>
+                        {row.typeLabel}
+                      </span>
+                    </td>
+                    <td>{row.points}</td>
+                    <td>{row.commission}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

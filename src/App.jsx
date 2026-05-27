@@ -3,16 +3,18 @@ import { Link } from 'react-router-dom'
 import LoginSMS from './components/LoginSMS.jsx'
 import LenderDashboard from './components/LenderDashboard.jsx'
 import AdminPlatform from './components/AdminPlatform.jsx'
+import {
+  calcLenderPointsForProduct,
+  getClientPointsForPurchase,
+  LENDER,
+  loadLenderPointsConfig,
+  sumPurchaseLenderPoints,
+  VAS_PRODUCTS_DISPLAY as VAS_PRODUCTS,
+} from './data/vasCatalog.js'
 import './App.css'
 
 const STORAGE_KEY = 'vas-eksprespozyczka-demo-v1'
 const STORAGE_KEY_LEGACY = 'vas-smartpozyczka-demo-v1'
-
-const LENDER = {
-  name: 'EkspresPożyczka',
-  commissionPercent: 25,
-  portalUrl: 'https://www.eksprespozyczka.pl/demo-portal',
-}
 
 const BASE_CLIENTS = [
   {
@@ -55,36 +57,6 @@ const PROLONGATION_DAYS_BY_CATALOG = {
   r2: 14,
   r3: 30,
 }
-
-const VAS_PRODUCTS = [
-  {
-    id: 'p1',
-    name: 'Telemedycyna',
-    packageLabel: 'Pakiet 1 miesiąc',
-    description: '20 telekonsultacji, badania krwi i obrazowe.',
-    pricePln: 850,
-    pointsReward: 85,
-    icon: '🩺',
-  },
-  {
-    id: 'p2',
-    name: 'Assistance Domowy',
-    packageLabel: 'Pakiet 6 miesięcy',
-    description: 'Hydraulik, elektryk, ślusarz — interwencja w domu.',
-    pricePln: 350,
-    pointsReward: 35,
-    icon: '🏠',
-  },
-  {
-    id: 'p3',
-    name: 'Ochrona Pupil',
-    packageLabel: 'Pakiet półroczny',
-    description: 'Ubezpieczenie weterynaryjne i assistance dla zwierząt.',
-    pricePln: 650,
-    pointsReward: 65,
-    icon: '🐾',
-  },
-]
 
 /** Tabela informacyjna — przelicznik pożyczkodawcy (tylko odczyt, bez akcji po stronie platformy). */
 const LENDER_POINTS_CATALOG = [
@@ -254,12 +226,18 @@ function buildInitialState() {
       ? persisted.repaymentExtraDays
       : {}
 
+  const purchases = Array.isArray(persisted?.purchases) ? persisted.purchases : []
+
   return {
     pointsByClient,
-    purchases: Array.isArray(persisted?.purchases) ? persisted.purchases : [],
+    purchases,
     lenderRedemptions,
     clientLogins,
     repaymentExtraDays,
+    lenderPointsTotal:
+      typeof persisted?.lenderPointsTotal === 'number'
+        ? persisted.lenderPointsTotal
+        : sumPurchaseLenderPoints(purchases),
   }
 }
 
@@ -364,6 +342,9 @@ export default function App() {
   const [repaymentExtraDays, setRepaymentExtraDays] = useState(
     () => buildInitialState().repaymentExtraDays,
   )
+  const [lenderPointsTotal, setLenderPointsTotal] = useState(
+    () => buildInitialState().lenderPointsTotal,
+  )
   const [lenderPortalClientId, setLenderPortalClientId] = useState(null)
   const [lenderPortalVisitAt, setLenderPortalVisitAt] = useState(null)
   const [lenderPortalSelectedId, setLenderPortalSelectedId] = useState('')
@@ -374,7 +355,14 @@ export default function App() {
   const prolongAutoConfirmStartedRef = useRef(null)
 
   const persist = useCallback(
-    (nextPoints, nextPurchases, nextRedemptions, nextLogins, nextRepaymentExtra) => {
+    (
+      nextPoints,
+      nextPurchases,
+      nextRedemptions,
+      nextLogins,
+      nextRepaymentExtra,
+      nextLenderPointsTotal,
+    ) => {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
@@ -383,6 +371,7 @@ export default function App() {
           lenderRedemptions: nextRedemptions,
           clientLogins: nextLogins,
           repaymentExtraDays: nextRepaymentExtra,
+          lenderPointsTotal: nextLenderPointsTotal,
         }),
       )
     },
@@ -396,6 +385,7 @@ export default function App() {
       lenderRedemptions,
       clientLogins,
       repaymentExtraDays,
+      lenderPointsTotal,
     )
   }, [
     pointsByClient,
@@ -403,6 +393,7 @@ export default function App() {
     lenderRedemptions,
     clientLogins,
     repaymentExtraDays,
+    lenderPointsTotal,
     persist,
   ])
 
@@ -610,22 +601,28 @@ export default function App() {
       showToast('Zaloguj się numerem pożyczki.', 'warn')
       return
     }
+    const config = loadLenderPointsConfig()
+    const pointsEarned = getClientPointsForPurchase(LENDER.id, product.id, config)
+    const lenderPoints = calcLenderPointsForProduct(product)
+
     const entry = {
       id: uid(),
       clientId: sessionClient.id,
       productId: product.id,
       productName: product.name,
+      category: product.category,
       pricePln: product.pricePln,
-      pointsEarned: product.pointsReward,
+      pointsEarned,
+      lenderPoints,
       at: new Date().toISOString(),
     }
     setPurchases((prev) => [entry, ...prev])
     setPointsByClient((prev) => ({
       ...prev,
-      [sessionClient.id]:
-        (prev[sessionClient.id] ?? 0) + product.pointsReward,
+      [sessionClient.id]: (prev[sessionClient.id] ?? 0) + pointsEarned,
     }))
-    showToast(`Dodano ${product.name}. +${product.pointsReward} pkt.`)
+    setLenderPointsTotal((prev) => prev + lenderPoints)
+    showToast(`Dodano ${product.name}. +${pointsEarned} pkt.`)
   }
 
   const openLenderPortal = () => {
@@ -851,6 +848,7 @@ export default function App() {
     setPurchases([])
     setLenderRedemptions([])
     setRepaymentExtraDays({})
+    setLenderPointsTotal(0)
     setClientLogins({})
     setClientSessionId(null)
     setLenderPortalClientId(null)
@@ -1381,7 +1379,8 @@ export default function App() {
                     {p.icon} {p.name}
                   </span>
                   <span className="vas-muted">
-                    {formatMoney(p.pricePln)} · {p.packageLabel}
+                    {formatMoney(p.pricePln)} ·{' '}
+                    {p.category === 'telemedicine' ? 'Telemedycyna' : 'Ubezpieczenie'}
                   </span>
                 </li>
               ))}
@@ -1463,9 +1462,10 @@ export default function App() {
                       <div className="vas-product-price-row">
                         <div>
                           <div className="vas-price">{formatMoney(p.pricePln)}</div>
-                          <div className="vas-muted vas-text-sm">{p.packageLabel}</div>
                         </div>
-                        <div className="vas-points-badge">+{p.pointsReward} pkt</div>
+                        <div className="vas-points-badge">
+                          +{getClientPointsForPurchase(LENDER.id, p.id)} pkt
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -1675,7 +1675,16 @@ export default function App() {
                 </div>
               </div>
 
-              <LenderDashboard lenderName={LENDER.name} />
+              <LenderDashboard
+                lenderName={LENDER.name}
+                purchases={purchases}
+                lenderRedemptions={lenderRedemptions}
+                pointsByClient={pointsByClient}
+                lenderPointsTotal={lenderPointsTotal}
+                clientLogins={clientLogins}
+                repaymentExtraDays={repaymentExtraDays}
+                baseClients={BASE_CLIENTS}
+              />
             </section>
           </main>
         </div>
@@ -1711,6 +1720,7 @@ export default function App() {
                   platformNetRevenue,
                   lenderName: LENDER.name,
                   commissionPercent: LENDER.commissionPercent,
+                  lenderPointsTotal,
                 }}
               />
 

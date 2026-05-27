@@ -1,27 +1,20 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  DEFAULT_LENDER_POINTS_CONFIG,
+  LENDER_ADMIN_TABS,
+  loadLenderPointsConfig,
+  saveLenderPointsConfig,
+  VAS_PRODUCTS,
+} from '../data/vasCatalog.js'
 import './AdminConfig.css'
 
-const LENDERS = ['KredytOK', 'Szybka Gotówka', 'PożyczkaPLUS']
-
-const PRODUCT_DEFS = [
-  { id: 'telebasic', label: 'Telemedycyna Basic' },
-  { id: 'teleroz', label: 'Telemedycyna Rozszerzona' },
-  { id: 'telepremium', label: 'Telemedycyna Premium' },
-  { id: 'cpi', label: 'Ubezpieczenie CPI' },
-  { id: 'zycie', label: 'Ubezpieczenie Życie NNW' },
-  { id: 'home', label: 'Ubezpieczenie Home Assistance' },
-]
+const LENDERS = LENDER_ADMIN_TABS.map((t) => t.label)
 
 function buildProducts(overrides) {
-  const base = {
-    telebasic: { active: true, price: 0, points: 0 },
-    teleroz: { active: false, price: 0, points: 0 },
-    telepremium: { active: false, price: 0, points: 0 },
-    cpi: { active: false, price: 0, points: 0 },
-    zycie: { active: false, price: 0, points: 0 },
-    home: { active: false, price: 0, points: 0 },
-  }
+  const base = Object.fromEntries(
+    VAS_PRODUCTS.map((p) => [p.id, { active: p.id === 'p1', price: p.pricePln }]),
+  )
   return { ...base, ...overrides }
 }
 
@@ -37,14 +30,31 @@ function buildBenefits(overrides) {
 }
 
 const DEFAULT_LENDER_CONFIGS = {
+  EkspresPożyczka: {
+    products: buildProducts({
+      p1: { active: true, price: 120 },
+      p2: { active: true, price: 240 },
+      p3: { active: true, price: 400 },
+      p4: { active: true, price: 180 },
+      p5: { active: true, price: 240 },
+      p6: { active: true, price: 160 },
+    }),
+    benefits: buildBenefits({
+      prolong7: { active: true, points: 70 },
+      prolong14: { active: true, points: 120 },
+      prolong30: { active: true, points: 180 },
+      partialPayment: { active: true, points: 95 },
+      expressLoan: { active: false, points: 200 },
+    }),
+  },
   KredytOK: {
     products: buildProducts({
-      telebasic: { active: true, price: 79, points: 8 },
-      teleroz: { active: true, price: 129, points: 13 },
-      telepremium: { active: true, price: 199, points: 20 },
-      cpi: { active: true, price: 45, points: 5 },
-      zycie: { active: false, price: 89, points: 9 },
-      home: { active: true, price: 59, points: 6 },
+      p1: { active: true, price: 120 },
+      p2: { active: true, price: 240 },
+      p3: { active: true, price: 400 },
+      p4: { active: true, price: 180 },
+      p5: { active: false, price: 240 },
+      p6: { active: true, price: 160 },
     }),
     benefits: buildBenefits({
       prolong7: { active: true, points: 65 },
@@ -56,12 +66,12 @@ const DEFAULT_LENDER_CONFIGS = {
   },
   'Szybka Gotówka': {
     products: buildProducts({
-      telebasic: { active: true, price: 69, points: 7 },
-      teleroz: { active: true, price: 119, points: 12 },
-      telepremium: { active: false, price: 189, points: 19 },
-      cpi: { active: true, price: 39, points: 4 },
-      zycie: { active: true, price: 99, points: 10 },
-      home: { active: false, price: 55, points: 6 },
+      p1: { active: true, price: 120 },
+      p2: { active: true, price: 240 },
+      p3: { active: false, price: 400 },
+      p4: { active: true, price: 180 },
+      p5: { active: true, price: 240 },
+      p6: { active: false, price: 160 },
     }),
     benefits: buildBenefits({
       prolong7: { active: false, points: 60 },
@@ -73,12 +83,12 @@ const DEFAULT_LENDER_CONFIGS = {
   },
   PożyczkaPLUS: {
     products: buildProducts({
-      telebasic: { active: true, price: 89, points: 9 },
-      teleroz: { active: false, price: 139, points: 14 },
-      telepremium: { active: true, price: 219, points: 22 },
-      cpi: { active: false, price: 49, points: 5 },
-      zycie: { active: true, price: 109, points: 11 },
-      home: { active: true, price: 65, points: 7 },
+      p1: { active: true, price: 120 },
+      p2: { active: false, price: 240 },
+      p3: { active: true, price: 400 },
+      p4: { active: false, price: 180 },
+      p5: { active: true, price: 240 },
+      p6: { active: true, price: 160 },
     }),
     benefits: buildBenefits({
       prolong7: { active: true, points: 75 },
@@ -102,9 +112,12 @@ export default function AdminConfig() {
 
   const [configs, setConfigs] = useState(() => cloneConfigs(DEFAULT_LENDER_CONFIGS))
   const [selectedLender, setSelectedLender] = useState(LENDERS[0])
+  const [lenderPointsConfig, setLenderPointsConfig] = useState(() => loadLenderPointsConfig())
   const [saveMessage, setSaveMessage] = useState('')
 
   const current = configs[selectedLender]
+  const selectedLenderKey =
+    LENDER_ADMIN_TABS.find((t) => t.label === selectedLender)?.key ?? 'ekspres'
 
   const handleLogin = (e) => {
     e.preventDefault()
@@ -158,8 +171,20 @@ export default function AdminConfig() {
     setSaveMessage('')
   }
 
+  const updateLenderProductPoints = (productId, points) => {
+    setLenderPointsConfig((prev) => ({
+      ...prev,
+      [selectedLenderKey]: {
+        ...prev[selectedLenderKey],
+        [productId]: Math.max(0, Number(points) || 0),
+      },
+    }))
+    setSaveMessage('')
+  }
+
   const handleSave = () => {
-    setSaveMessage('Konfiguracja zapisana pomyślnie')
+    saveLenderPointsConfig(lenderPointsConfig)
+    setSaveMessage('Konfiguracja zapisana')
   }
 
   if (!isLoggedIn) {
@@ -283,7 +308,7 @@ export default function AdminConfig() {
           <section className="admin-config-section" aria-labelledby="admin-products-heading">
             <h2 id="admin-products-heading">Aktywne produkty VAS</h2>
             <div className="admin-config-products">
-              {PRODUCT_DEFS.map((def) => {
+              {VAS_PRODUCTS.map((def) => {
                 const p = current.products[def.id]
                 return (
                   <div key={def.id} className="admin-config-product-row">
@@ -295,7 +320,7 @@ export default function AdminConfig() {
                           updateProduct(def.id, { active: e.target.checked })
                         }
                       />
-                      {def.label}
+                      {def.name}
                     </label>
                     <div className="admin-config-num-field">
                       <div className="admin-config-num-label">Cena (zł)</div>
@@ -311,24 +336,52 @@ export default function AdminConfig() {
                         }
                       />
                     </div>
-                    <div className="admin-config-num-field">
-                      <div className="admin-config-num-label">Punkty za zakup</div>
-                      <input
-                        type="number"
-                        min={0}
-                        value={p.points}
-                        disabled={!p.active}
-                        onChange={(e) =>
-                          updateProduct(def.id, {
-                            points: Math.max(0, Number(e.target.value) || 0),
-                          })
-                        }
-                      />
-                    </div>
                   </div>
                 )
               })}
             </div>
+          </section>
+
+          <section
+            className="admin-config-section"
+            aria-labelledby="admin-points-config-heading"
+          >
+            <h2 id="admin-points-config-heading">
+              Punkty za zakup VAS — {selectedLender}
+            </h2>
+            <p className="admin-config-section-lead">
+              Ile punktów przyznaje klientowi ten pożyczkodawca za zakup każdego produktu VAS
+              (wartości mogą się różnić między pożyczkodawcami).
+            </p>
+            <table className="admin-config-benefits-table admin-config-points-table">
+              <thead>
+                <tr>
+                  <th>Produkt VAS</th>
+                  <th>Punkty za zakup</th>
+                </tr>
+              </thead>
+              <tbody>
+                {VAS_PRODUCTS.map((product) => (
+                  <tr key={product.id}>
+                    <td>{product.name}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min={0}
+                        value={
+                          lenderPointsConfig[selectedLenderKey]?.[product.id] ??
+                          DEFAULT_LENDER_POINTS_CONFIG[selectedLenderKey]?.[product.id] ??
+                          0
+                        }
+                        onChange={(e) =>
+                          updateLenderProductPoints(product.id, e.target.value)
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
 
           <section className="admin-config-section" aria-labelledby="admin-benefits-heading">
