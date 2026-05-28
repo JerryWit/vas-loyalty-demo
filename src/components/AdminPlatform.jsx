@@ -65,7 +65,12 @@ function isCurrentMonth(iso) {
 }
 
 function getPurchasePlatformRevenue(purchase) {
-  return purchase.lenderPoints ?? 0
+  return purchase.platformRevenue ?? purchase.lenderPoints ?? 0
+}
+
+function getCurrentMonthLabel() {
+  const now = new Date()
+  return now.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
 }
 
 function buildInsuranceByTu(purchases, productMetaByName) {
@@ -333,8 +338,8 @@ export default function AdminPlatform({
   }
 
   const netPlatformRevenueValue =
-    (settlementModel?.platformNetRevenue ?? 0) > 0
-      ? formatMoney(settlementModel.platformNetRevenue)
+    (settlementModel?.totalPlatformRevenue ?? 0) > 0
+      ? formatMoney(settlementModel.totalPlatformRevenue)
       : '0 zł'
   const avgBasketValue =
     purchases.length > 0
@@ -403,6 +408,43 @@ export default function AdminPlatform({
   const expiringPointsDemo = { pts: 45, clients: 3 }
   const csvDeadlineDemo = { days: 8, date: '05.06.2026' }
   const showAlerts = failedWebhookCount > 0 || expiringPointsDemo || csvDeadlineDemo
+  const invoiceMonthLabel = useMemo(() => getCurrentMonthLabel(), [])
+  const lenderInvoiceRows = useMemo(() => {
+    const groups = new Map()
+    purchases.forEach((purchase) => {
+      const lenderName = purchase.lenderName ?? settlementModel?.lenderName ?? 'Nieznany'
+      const category = purchase.category === 'telemedicine' ? 'telemedicine' : 'insurance'
+      const key = `${lenderName}::${category}`
+      const current = groups.get(key) ?? {
+        lenderName,
+        category,
+        transactions: 0,
+        net: 0,
+        vat: 0,
+        gross: 0,
+        document: category === 'telemedicine' ? 'Nota księgowa' : 'Faktura VAT',
+      }
+      current.transactions += 1
+      current.net += purchase.lenderCommissionNet ?? 0
+      current.vat += purchase.lenderVat ?? 0
+      current.gross += purchase.lenderCommissionGross ?? 0
+      groups.set(key, current)
+    })
+    return Array.from(groups.values()).sort((a, b) => {
+      const lenderCmp = a.lenderName.localeCompare(b.lenderName)
+      if (lenderCmp !== 0) return lenderCmp
+      return a.category.localeCompare(b.category)
+    })
+  }, [purchases, settlementModel?.lenderName])
+  const lenderInvoiceTotals = useMemo(
+    () => ({
+      transactions: lenderInvoiceRows.reduce((sum, row) => sum + row.transactions, 0),
+      net: lenderInvoiceRows.reduce((sum, row) => sum + row.net, 0),
+      vat: lenderInvoiceRows.reduce((sum, row) => sum + row.vat, 0),
+      gross: lenderInvoiceRows.reduce((sum, row) => sum + row.gross, 0),
+    }),
+    [lenderInvoiceRows],
+  )
 
   return (
     <div className="ap-dashboard">
@@ -749,11 +791,28 @@ export default function AdminPlatform({
           </div>
           <ul className="vas-checklist">
             <li>
-              Sprzedaż VAS: <strong>{formatMoney(settlementModel.totalVasRevenue)}</strong>
+              Sprzedaż VAS (przychód brutto):{' '}
+              <strong>{formatMoney(settlementModel.totalVasRevenue)}</strong>
             </li>
             <li>
-              Przychód z prowizji agencyjnej:{' '}
-              <strong>{formatMoney(settlementModel.platformNetRevenue)}</strong>
+              Koszt dostawców (Telemedi / TU):{' '}
+              <strong>-{formatMoney(settlementModel.totalProviderCost ?? 0)}</strong>
+            </li>
+            <li>
+              Prowizja pożyczkodawców brutto:{' '}
+              <strong>-{formatMoney(settlementModel.totalLenderCommissionGross ?? 0)}</strong>
+            </li>
+            <li>
+              w tym VAT od prowizji:{' '}
+              <strong>{formatMoney(settlementModel.totalLenderVat ?? 0)}</strong>
+            </li>
+            <li>
+              prowizja netto:{' '}
+              <strong>{formatMoney(settlementModel.totalLenderCommissionNet ?? 0)}</strong>
+            </li>
+            <li>
+              Przychód platformy (marża):{' '}
+              <strong>{formatMoney(settlementModel.totalPlatformRevenue ?? 0)}</strong>
             </li>
             <li>
               Punkty Pożyczkodawcy:{' '}
@@ -762,6 +821,77 @@ export default function AdminPlatform({
           </ul>
         </div>
       ) : null}
+
+      <SectionCard title="Zestawienie do faktur — prowizje pożyczkodawców" badge="FAKTURY">
+        <p className="vas-muted vas-text-sm">
+          Na podstawie poniższego zestawienia pożyczkodawca wystawia fakturę VAT (usługi
+          marketingowe) lub notę księgową (telemedycyna — zwolnienie z VAT).
+        </p>
+        {lenderInvoiceRows.length === 0 ? (
+          <p className="ap-muted-cell">Brak transakcji w wybranym okresie.</p>
+        ) : (
+          <div className="ap-table-wrap ap-mt-md">
+            <table className="ap-table">
+              <thead>
+                <tr>
+                  <th>Pożyczkodawca</th>
+                  <th>Produkt (kategoria: Telemedycyna / Ubezpieczenia)</th>
+                  <th>Liczba transakcji</th>
+                  <th>Prowizja netto (zł)</th>
+                  <th>VAT 23% (zł)</th>
+                  <th>Prowizja brutto (zł)</th>
+                  <th>Dokument</th>
+                  <th>Okres</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lenderInvoiceRows.map((row) => (
+                  <tr key={`${row.lenderName}-${row.category}`}>
+                    <td>{row.lenderName}</td>
+                    <td>
+                      {row.category === 'telemedicine'
+                        ? 'Telemedycyna'
+                        : 'Ubezpieczenia'}
+                    </td>
+                    <td>{row.transactions}</td>
+                    <td>{formatMoney(row.net)}</td>
+                    <td>{formatMoney(row.vat)}</td>
+                    <td>{formatMoney(row.gross)}</td>
+                    <td>{row.document}</td>
+                    <td>{invoiceMonthLabel}</td>
+                  </tr>
+                ))}
+                <tr className="ap-table-total">
+                  <td>
+                    <strong>Razem</strong>
+                  </td>
+                  <td>
+                    <strong>—</strong>
+                  </td>
+                  <td>
+                    <strong>{lenderInvoiceTotals.transactions}</strong>
+                  </td>
+                  <td>
+                    <strong>{formatMoney(lenderInvoiceTotals.net)}</strong>
+                  </td>
+                  <td>
+                    <strong>{formatMoney(lenderInvoiceTotals.vat)}</strong>
+                  </td>
+                  <td>
+                    <strong>{formatMoney(lenderInvoiceTotals.gross)}</strong>
+                  </td>
+                  <td>
+                    <strong>—</strong>
+                  </td>
+                  <td>
+                    <strong>{invoiceMonthLabel}</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
     </div>
   )
 }

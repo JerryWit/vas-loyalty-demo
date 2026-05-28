@@ -10,6 +10,28 @@ import {
 import './AdminConfig.css'
 
 const LENDERS = LENDER_ADMIN_TABS.map((t) => t.label)
+const LENDER_PRICES_CONFIG_KEY = 'lenderPricesConfig'
+const DEFAULT_LENDER_PRICES_CONFIG = {
+  ekspres: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
+  kredytok: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
+  szybkagotowka: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
+  pozyczkaplus: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
+}
+
+function loadLenderPricesConfig() {
+  try {
+    const raw = localStorage.getItem(LENDER_PRICES_CONFIG_KEY)
+    if (!raw) return { ...DEFAULT_LENDER_PRICES_CONFIG }
+    const parsed = JSON.parse(raw)
+    const merged = { ...DEFAULT_LENDER_PRICES_CONFIG }
+    Object.keys(merged).forEach((lenderKey) => {
+      merged[lenderKey] = { ...merged[lenderKey], ...parsed[lenderKey] }
+    })
+    return merged
+  } catch {
+    return { ...DEFAULT_LENDER_PRICES_CONFIG }
+  }
+}
 
 function buildProducts(overrides) {
   const base = Object.fromEntries(
@@ -113,6 +135,9 @@ export default function AdminConfig() {
   const [configs, setConfigs] = useState(() => cloneConfigs(DEFAULT_LENDER_CONFIGS))
   const [selectedLender, setSelectedLender] = useState(LENDERS[0])
   const [lenderPointsConfig, setLenderPointsConfig] = useState(() => loadLenderPointsConfig())
+  const [lenderPricesConfig, setLenderPricesConfig] = useState(() =>
+    loadLenderPricesConfig(),
+  )
   const [saveMessage, setSaveMessage] = useState('')
 
   const current = configs[selectedLender]
@@ -182,8 +207,20 @@ export default function AdminConfig() {
     setSaveMessage('')
   }
 
+  const updateLenderProductPrice = (productId, price) => {
+    setLenderPricesConfig((prev) => ({
+      ...prev,
+      [selectedLenderKey]: {
+        ...prev[selectedLenderKey],
+        [productId]: Math.max(0, Number(price) || 0),
+      },
+    }))
+    setSaveMessage('')
+  }
+
   const handleSave = () => {
     saveLenderPointsConfig(lenderPointsConfig)
+    localStorage.setItem(LENDER_PRICES_CONFIG_KEY, JSON.stringify(lenderPricesConfig))
     setSaveMessage('Konfiguracja zapisana')
   }
 
@@ -353,6 +390,37 @@ export default function AdminConfig() {
               Ile punktów przyznaje klientowi ten pożyczkodawca za zakup każdego produktu VAS
               (wartości mogą się różnić między pożyczkodawcami).
             </p>
+            <h3 className="admin-config-subtitle">Ceny produktów VAS dla klienta (zł)</h3>
+            <table className="admin-config-benefits-table admin-config-points-table">
+              <thead>
+                <tr>
+                  <th>Produkt VAS</th>
+                  <th>Cena (zł)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {VAS_PRODUCTS.map((product) => (
+                  <tr key={`price-${product.id}`}>
+                    <td>{product.name}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min={0}
+                        value={
+                          lenderPricesConfig[selectedLenderKey]?.[product.id] ??
+                          DEFAULT_LENDER_PRICES_CONFIG[selectedLenderKey]?.[product.id] ??
+                          product.pricePln
+                        }
+                        onChange={(e) =>
+                          updateLenderProductPrice(product.id, e.target.value)
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <h3 className="admin-config-subtitle">Punkty za zakup VAS</h3>
             <table className="admin-config-benefits-table admin-config-points-table">
               <thead>
                 <tr>

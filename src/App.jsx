@@ -4,12 +4,9 @@ import LoginSMS from './components/LoginSMS.jsx'
 import LenderDashboard from './components/LenderDashboard.jsx'
 import AdminPlatform from './components/AdminPlatform.jsx'
 import {
-  calcLenderPointsForProduct,
-  getClientPointsForPurchase,
   LENDER,
-  loadLenderPointsConfig,
   sumPurchaseLenderPoints,
-  VAS_PRODUCTS_DISPLAY as VAS_PRODUCTS,
+  VAS_PRODUCTS_DISPLAY,
 } from './data/vasCatalog.js'
 import './App.css'
 
@@ -149,6 +146,69 @@ const OFFER_CATEGORIES = [
     tags: ['Angielski', 'Online', 'Lektor'],
   },
 ]
+
+const VAS_PRODUCTS = [
+  {
+    id: 'p1',
+    name: 'Telemedycyna Basic',
+    category: 'telemedicine',
+    pricePln: 120,
+    providerCost: 3,
+    lenderCommissionRate: 0.85,
+    vatOnCommission: false,
+  },
+  {
+    id: 'p2',
+    name: 'Telemedycyna Rozszerzona',
+    category: 'telemedicine',
+    pricePln: 240,
+    providerCost: 3,
+    lenderCommissionRate: 0.85,
+    vatOnCommission: false,
+  },
+  {
+    id: 'p3',
+    name: 'Telemedycyna Premium',
+    category: 'telemedicine',
+    pricePln: 400,
+    providerCost: 3,
+    lenderCommissionRate: 0.85,
+    vatOnCommission: false,
+  },
+  {
+    id: 'p4',
+    name: 'Ubezpieczenie CPI',
+    category: 'insurance',
+    pricePln: 180,
+    providerCost: 54,
+    lenderCommissionRate: 0.45,
+    vatOnCommission: true,
+    tuName: 'TU Alfa',
+  },
+  {
+    id: 'p5',
+    name: 'Ubezpieczenie Życie NNW',
+    category: 'insurance',
+    pricePln: 240,
+    providerCost: 72,
+    lenderCommissionRate: 0.45,
+    vatOnCommission: true,
+    tuName: 'TU Alfa',
+  },
+  {
+    id: 'p6',
+    name: 'Home Assistance',
+    category: 'insurance',
+    pricePln: 160,
+    providerCost: 48,
+    lenderCommissionRate: 0.45,
+    vatOnCommission: true,
+    tuName: 'TU Beta',
+  },
+].map((product) => {
+  const display = VAS_PRODUCTS_DISPLAY.find((p) => p.id === product.id) ?? {}
+  return { ...display, ...product }
+})
 
 const ROLE_NAV = [
   {
@@ -297,6 +357,16 @@ function getLatestPendingProlongation(redemptions, clientId) {
 
 function isProlongationCatalogId(catalogId) {
   return (PROLONGATION_DAYS_BY_CATALOG[catalogId] ?? 0) > 0
+}
+
+const getProductConfig = (product, lenderId) => {
+  const savedPrices = JSON.parse(localStorage.getItem('lenderPricesConfig') || '{}')
+  const savedPoints = JSON.parse(localStorage.getItem('lenderPointsConfig') || '{}')
+  return {
+    ...product,
+    pricePln: savedPrices?.[lenderId]?.[product.id] ?? product.pricePln,
+    pointsReward: savedPoints?.[lenderId]?.[product.id] ?? 0,
+  }
 }
 
 function getPortalRedemptionRows({ prolongationIds = ['r1', 'r2', 'r3'] } = {}) {
@@ -530,14 +600,25 @@ export default function App() {
     [purchases],
   )
 
-  const lenderCommissionTotal = useMemo(
-    () => Math.round((totalVasRevenue * LENDER.commissionPercent) / 100),
-    [totalVasRevenue],
+  const totalProviderCost = useMemo(
+    () => purchases.reduce((s, p) => s + (p.providerCost ?? 0), 0),
+    [purchases],
   )
-
-  const platformNetRevenue = useMemo(
-    () => Math.max(0, totalVasRevenue - lenderCommissionTotal),
-    [totalVasRevenue, lenderCommissionTotal],
+  const totalLenderCommissionGross = useMemo(
+    () => purchases.reduce((s, p) => s + (p.lenderCommissionGross ?? 0), 0),
+    [purchases],
+  )
+  const totalLenderCommissionNet = useMemo(
+    () => purchases.reduce((s, p) => s + (p.lenderCommissionNet ?? 0), 0),
+    [purchases],
+  )
+  const totalLenderVat = useMemo(
+    () => purchases.reduce((s, p) => s + (p.lenderVat ?? 0), 0),
+    [purchases],
+  )
+  const totalPlatformRevenue = useMemo(
+    () => purchases.reduce((s, p) => s + (p.platformRevenue ?? 0), 0),
+    [purchases],
   )
 
   const handleLoanLogin = (e) => {
@@ -601,20 +682,36 @@ export default function App() {
       showToast('Zaloguj się numerem pożyczki.', 'warn')
       return
     }
-    const config = loadLenderPointsConfig()
-    const pointsEarned = getClientPointsForPurchase(LENDER.id, product.id, config)
-    const lenderPoints = calcLenderPointsForProduct(product)
+    const configuredProduct = getProductConfig(product, LENDER.id)
+    const currentPrice = configuredProduct.pricePln
+    const pointsEarned = configuredProduct.pointsReward
+    const lenderCommissionGross = Math.round(
+      currentPrice * configuredProduct.lenderCommissionRate,
+    )
+    const lenderCommissionNet = configuredProduct.vatOnCommission
+      ? Math.round(lenderCommissionGross / 1.23)
+      : lenderCommissionGross
+    const lenderVat = lenderCommissionGross - lenderCommissionNet
+    const platformRevenue =
+      currentPrice - lenderCommissionGross - configuredProduct.providerCost
+    const lenderPoints = Math.round(currentPrice * configuredProduct.lenderCommissionRate)
 
     const entry = {
       id: uid(),
       clientId: sessionClient.id,
-      productId: product.id,
-      productName: product.name,
-      category: product.category,
-      tuName: product.tuName,
-      pricePln: product.pricePln,
+      productId: configuredProduct.id,
+      productName: configuredProduct.name,
+      category: configuredProduct.category,
+      pricePln: currentPrice,
       pointsEarned,
       lenderPoints,
+      lenderCommissionGross,
+      lenderCommissionNet,
+      lenderVat,
+      providerCost: configuredProduct.providerCost,
+      platformRevenue,
+      vatOnCommission: configuredProduct.vatOnCommission,
+      tuName: configuredProduct.tuName ?? null,
       at: new Date().toISOString(),
     }
     setPurchases((prev) => [entry, ...prev])
@@ -623,7 +720,7 @@ export default function App() {
       [sessionClient.id]: (prev[sessionClient.id] ?? 0) + pointsEarned,
     }))
     setLenderPointsTotal((prev) => prev + lenderPoints)
-    showToast(`Dodano ${product.name}. +${pointsEarned} pkt.`)
+    showToast(`Dodano ${configuredProduct.name}. +${pointsEarned} pkt.`)
   }
 
   const openLenderPortal = () => {
@@ -1449,30 +1546,42 @@ export default function App() {
                   <span className="vas-badge">Kup teraz</span>
                 </div>
                 <div className="vas-product-grid vas-product-grid-client">
-                  {VAS_PRODUCTS.map((p) => (
-                    <article key={p.id} className="vas-product-card">
-                      <div className="vas-product-icon" aria-hidden>
-                        {p.icon}
-                      </div>
-                      <h3 className="vas-h3">{p.name}</h3>
-                      <p className="vas-muted vas-text-sm">{p.description}</p>
-                      <div className="vas-product-price-row">
-                        <div>
-                          <div className="vas-price">{formatMoney(p.pricePln)}</div>
-                        </div>
-                        <div className="vas-points-badge">
-                          +{getClientPointsForPurchase(LENDER.id, p.id)} pkt
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="vas-btn vas-btn-secondary vas-btn-block"
-                        onClick={() => buyProduct(p)}
-                      >
-                        Kup VAS
-                      </button>
-                    </article>
-                  ))}
+                  {(() => {
+                    const savedPrices = JSON.parse(
+                      localStorage.getItem('lenderPricesConfig') || '{}',
+                    )
+                    const savedPoints = JSON.parse(
+                      localStorage.getItem('lenderPointsConfig') || '{}',
+                    )
+                    return VAS_PRODUCTS.map((p) => {
+                      const displayPrice =
+                        savedPrices?.[LENDER.id]?.[p.id] ?? p.pricePln
+                      const displayPoints =
+                        savedPoints?.[LENDER.id]?.[p.id] ?? 0
+                      return (
+                        <article key={p.id} className="vas-product-card">
+                          <div className="vas-product-icon" aria-hidden>
+                            {p.icon}
+                          </div>
+                          <h3 className="vas-h3">{p.name}</h3>
+                          <p className="vas-muted vas-text-sm">{p.description}</p>
+                          <div className="vas-product-price-row">
+                            <div>
+                              <div className="vas-price">{formatMoney(displayPrice)}</div>
+                            </div>
+                            <div className="vas-points-badge">+{displayPoints} pkt</div>
+                          </div>
+                          <button
+                            type="button"
+                            className="vas-btn vas-btn-secondary vas-btn-block"
+                            onClick={() => buyProduct(p)}
+                          >
+                            Kup VAS
+                          </button>
+                        </article>
+                      )
+                    })
+                  })()}
                 </div>
               </section>
             </div>
@@ -1718,8 +1827,11 @@ export default function App() {
                 baseClients={BASE_CLIENTS}
                 settlementModel={{
                   totalVasRevenue,
-                  lenderCommissionTotal,
-                  platformNetRevenue,
+                  totalProviderCost,
+                  totalLenderCommissionGross,
+                  totalLenderCommissionNet,
+                  totalLenderVat,
+                  totalPlatformRevenue,
                   lenderName: LENDER.name,
                   commissionPercent: LENDER.commissionPercent,
                   lenderPointsTotal,
