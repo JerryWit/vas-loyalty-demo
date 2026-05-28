@@ -421,8 +421,27 @@ export default function App() {
   const [lenderPortalLoanLogin, setLenderPortalLoanLogin] = useState('')
   const [lenderPortalLoginError, setLenderPortalLoginError] = useState('')
   const [lenderPortalProlongSuccess, setLenderPortalProlongSuccess] = useState(null)
+  const [lenderPortalRequestStatus, setLenderPortalRequestStatus] = useState(null)
   const prolongAutoConfirmRef = useRef(null)
   const prolongAutoConfirmStartedRef = useRef(null)
+  const lenderPortalResponseTimerRef = useRef(null)
+  const lenderPortalHideStatusTimerRef = useRef(null)
+  const lenderPortalRedirectTimerRef = useRef(null)
+
+  const clearLenderPortalRequestTimers = useCallback(() => {
+    if (lenderPortalResponseTimerRef.current) {
+      clearTimeout(lenderPortalResponseTimerRef.current)
+      lenderPortalResponseTimerRef.current = null
+    }
+    if (lenderPortalHideStatusTimerRef.current) {
+      clearTimeout(lenderPortalHideStatusTimerRef.current)
+      lenderPortalHideStatusTimerRef.current = null
+    }
+    if (lenderPortalRedirectTimerRef.current) {
+      clearTimeout(lenderPortalRedirectTimerRef.current)
+      lenderPortalRedirectTimerRef.current = null
+    }
+  }, [])
 
   const persist = useCallback(
     (
@@ -736,8 +755,10 @@ export default function App() {
       clearTimeout(prolongAutoConfirmRef.current)
       prolongAutoConfirmRef.current = null
     }
+    clearLenderPortalRequestTimers()
     prolongAutoConfirmStartedRef.current = null
     setLenderPortalProlongSuccess(null)
+    setLenderPortalRequestStatus(null)
     setClientScreen('home')
     setLenderPortalSelectedId('')
     setLenderPortalLoginError('')
@@ -773,7 +794,7 @@ export default function App() {
     const { silent = false, channel = 'api' } = options
     const option = LENDER_POINTS_CATALOG.find((o) => o.id === catalogId)
     const client = BASE_CLIENTS.find((c) => c.id === clientId)
-    if (!option || !client) return false
+    if (!option || !client) return null
 
     const prolongDays = PROLONGATION_DAYS_BY_CATALOG[catalogId] ?? 0
     if (prolongDays > 0) {
@@ -785,7 +806,7 @@ export default function App() {
             'warn',
           )
         }
-        return false
+        return null
       }
     }
 
@@ -798,7 +819,7 @@ export default function App() {
     )
     if (row && !row.allowed) {
       if (!silent) showToast('Opcja niedostępna w tym kanale.', 'warn')
-      return false
+      return null
     }
     const bal = pointsByClient[clientId] ?? client.basePoints
     if (bal < option.pointsCost) {
@@ -808,7 +829,7 @@ export default function App() {
           'warn',
         )
       }
-      return false
+      return null
     }
 
     const redemptionId = uid()
@@ -843,7 +864,7 @@ export default function App() {
         )
       }
     }
-    return true
+    return redemptionId
   }
 
   /** Demo: potwierdzenie pożyczkodawcy → aktualizacja terminu spłaty w umowie. */
@@ -885,7 +906,8 @@ export default function App() {
     if (
       clientScreen !== 'lender-portal' ||
       !lenderPortalPendingProlong ||
-      lenderPortalProlongSuccess
+      lenderPortalProlongSuccess ||
+      lenderPortalRequestStatus?.type
     ) {
       return undefined
     }
@@ -914,6 +936,7 @@ export default function App() {
     clientScreen,
     lenderPortalPendingProlong,
     lenderPortalProlongSuccess,
+    lenderPortalRequestStatus,
     lenderRedemptions,
     repaymentExtraDays,
   ])
@@ -923,18 +946,62 @@ export default function App() {
       showToast('Wybierz opcję wykorzystania punktów.', 'warn')
       return
     }
-    const isProlong = isProlongationCatalogId(lenderPortalSelectedId)
-    const ok = confirmRedemptionViaLenderApi(
-      lenderPortalClient.id,
-      lenderPortalSelectedId,
-      { silent: true, channel: 'portal' },
-    )
-    if (ok) {
-      setLenderPortalSelectedId('')
-      if (!isProlong) {
-        showToast('Wykorzystano punkty (demo).')
+    clearLenderPortalRequestTimers()
+    setLenderPortalRequestStatus({
+      type: 'loading',
+      message: `Wysyłamy wniosek do ${LENDER.name}...`,
+    })
+    const selectedId = lenderPortalSelectedId
+    const clientId = lenderPortalClient.id
+    const responseDelayMs = 10000 + Math.floor(Math.random() * 2001)
+    lenderPortalResponseTimerRef.current = setTimeout(() => {
+      const webhookFailed = Math.random() < 0.2
+      if (webhookFailed) {
+        setLenderPortalRequestStatus({
+          type: 'warning',
+          message:
+            'Twój wniosek jest w trakcie weryfikacji — potwierdzenie otrzymasz emailem w ciągu 24h.',
+        })
+        lenderPortalRedirectTimerRef.current = setTimeout(() => {
+          setLenderPortalRequestStatus(null)
+          leaveLenderPortal()
+        }, 10000)
+        return
       }
-    }
+      const redemptionId = confirmRedemptionViaLenderApi(clientId, selectedId, {
+        silent: true,
+        channel: 'portal',
+      })
+      if (!redemptionId) {
+        setLenderPortalRequestStatus({
+          type: 'warning',
+          message:
+            'Twój wniosek jest w trakcie weryfikacji — potwierdzenie otrzymasz emailem w ciągu 24h.',
+        })
+        lenderPortalRedirectTimerRef.current = setTimeout(() => {
+          setLenderPortalRequestStatus(null)
+          leaveLenderPortal()
+        }, 10000)
+        return
+      }
+      if (isProlongationCatalogId(selectedId)) {
+        confirmProlongationByPlatform(redemptionId, { silent: true })
+      }
+      setLenderPortalSelectedId('')
+      setLenderPortalRequestStatus({
+        type: 'success',
+        message: `✓ ${LENDER.name} zaakceptowała Twój wniosek.
+Przedłużenie spłaty zostało potwierdzone.
+Szczegóły otrzymasz SMS-em i mailem od ${LENDER.name}.`,
+      })
+      lenderPortalHideStatusTimerRef.current = setTimeout(() => {
+        setLenderPortalRequestStatus(null)
+      }, 4000)
+      lenderPortalRedirectTimerRef.current = setTimeout(() => {
+        setLenderPortalRequestStatus(null)
+        leaveLenderPortal()
+      }, 12000)
+    }, responseDelayMs)
   }
 
   const resetDemo = () => {
@@ -949,11 +1016,13 @@ export default function App() {
     setLenderPortalVisitAt(null)
     setLenderPortalSelectedId('')
     setLenderPortalProlongSuccess(null)
+    setLenderPortalRequestStatus(null)
     prolongAutoConfirmStartedRef.current = null
     if (prolongAutoConfirmRef.current) {
       clearTimeout(prolongAutoConfirmRef.current)
       prolongAutoConfirmRef.current = null
     }
+    clearLenderPortalRequestTimers()
     setClientScreen('home')
     setLoanLogin('')
     setLoginError('')
@@ -1182,6 +1251,37 @@ export default function App() {
                 </section>
 
                 <section className="vas-lender-portal-card">
+                  {lenderPortalRequestStatus ? (
+                    <div
+                      className="vas-mb-md"
+                      style={{
+                        background:
+                          lenderPortalRequestStatus.type === 'success'
+                            ? '#16a34a'
+                            : lenderPortalRequestStatus.type === 'warning'
+                              ? '#facc15'
+                              : '#1f2937',
+                        color:
+                          lenderPortalRequestStatus.type === 'warning'
+                            ? '#111827'
+                            : '#ffffff',
+                        borderRadius: 12,
+                        padding: '12px 14px',
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      {lenderPortalRequestStatus.type === 'loading' ? (
+                        <p className="vas-mb-z" aria-live="polite">
+                          <span className="vas-lender-pending-spinner" aria-hidden="true" />{' '}
+                          {lenderPortalRequestStatus.message}
+                        </p>
+                      ) : (
+                        <p className="vas-mb-z" aria-live="polite">
+                          {lenderPortalRequestStatus.message}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                   <h2 className="vas-h3 vas-mb-md">Wykorzystaj punkty</h2>
                   <ul className="vas-lender-option-list">
                     {portalRedemptionRows.map((row) => {
@@ -1244,7 +1344,7 @@ export default function App() {
                   <button
                     type="button"
                     className="vas-btn vas-btn-primary vas-btn-block vas-mt-md"
-                    disabled={!lenderPortalSelectedId}
+                    disabled={!lenderPortalSelectedId || lenderPortalRequestStatus?.type === 'loading'}
                     onClick={submitLenderPortalRedemption}
                   >
                     Potwierdź wykorzystanie punktów
