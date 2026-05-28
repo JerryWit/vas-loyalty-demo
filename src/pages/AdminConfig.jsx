@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  DEFAULT_LENDER_POINTS_CONFIG,
   LENDER_ADMIN_TABS,
-  loadLenderPointsConfig,
   saveLenderPointsConfig,
   VAS_PRODUCTS,
 } from '../data/vasCatalog.js'
@@ -11,11 +9,33 @@ import './AdminConfig.css'
 
 const LENDERS = LENDER_ADMIN_TABS.map((t) => t.label)
 const LENDER_PRICES_CONFIG_KEY = 'lenderPricesConfig'
+const LENDER_POINTS_CONFIG_KEY = 'lenderPointsConfig'
+const DEFAULT_LENDER_POINTS_CONFIG = {
+  ekspres: { p1: 60, p2: 120, p3: 200, p4: 45, p5: 60, p6: 40 },
+  kredytok: { p1: 65, p2: 130, p3: 210, p4: 50, p5: 65, p6: 45 },
+  szybkagotowka: { p1: 55, p2: 110, p3: 190, p4: 40, p5: 55, p6: 35 },
+  pozyczkaplus: { p1: 70, p2: 140, p3: 220, p4: 55, p5: 70, p6: 50 },
+}
 const DEFAULT_LENDER_PRICES_CONFIG = {
   ekspres: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
   kredytok: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
   szybkagotowka: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
   pozyczkaplus: { p1: 120, p2: 240, p3: 400, p4: 180, p5: 240, p6: 160 },
+}
+
+function loadLenderPointsConfig() {
+  try {
+    const raw = localStorage.getItem(LENDER_POINTS_CONFIG_KEY)
+    if (!raw) return { ...DEFAULT_LENDER_POINTS_CONFIG }
+    const parsed = JSON.parse(raw)
+    const merged = { ...DEFAULT_LENDER_POINTS_CONFIG }
+    Object.keys(merged).forEach((lenderKey) => {
+      merged[lenderKey] = { ...merged[lenderKey], ...parsed[lenderKey] }
+    })
+    return merged
+  } catch {
+    return { ...DEFAULT_LENDER_POINTS_CONFIG }
+  }
 }
 
 function loadLenderPricesConfig() {

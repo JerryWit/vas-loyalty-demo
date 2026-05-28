@@ -55,6 +55,22 @@ const PROLONGATION_DAYS_BY_CATALOG = {
   r3: 30,
 }
 
+const DEFAULT_LENDER_POINTS_BY_PRODUCT = {
+  ekspres: { p1: 60, p2: 120, p3: 200, p4: 45, p5: 60, p6: 40 },
+  kredytok: { p1: 65, p2: 130, p3: 210, p4: 50, p5: 65, p6: 45 },
+  szybkagotowka: { p1: 55, p2: 110, p3: 190, p4: 40, p5: 55, p6: 35 },
+  pozyczkaplus: { p1: 70, p2: 140, p3: 220, p4: 55, p5: 70, p6: 50 },
+}
+
+const DEFAULT_PRICES_BY_PRODUCT = {
+  p1: 120,
+  p2: 240,
+  p3: 400,
+  p4: 180,
+  p5: 240,
+  p6: 160,
+}
+
 /** Tabela informacyjna — przelicznik pożyczkodawcy (tylko odczyt, bez akcji po stronie platformy). */
 const LENDER_POINTS_CATALOG = [
   {
@@ -359,13 +375,25 @@ function isProlongationCatalogId(catalogId) {
   return (PROLONGATION_DAYS_BY_CATALOG[catalogId] ?? 0) > 0
 }
 
+const getPointsForProduct = (productId, lenderId) => {
+  const saved = JSON.parse(localStorage.getItem('lenderPointsConfig') || '{}')
+  return (
+    saved?.[lenderId]?.[productId] ??
+    DEFAULT_LENDER_POINTS_BY_PRODUCT?.[lenderId]?.[productId] ??
+    0
+  )
+}
+
+const getPriceForProduct = (productId, lenderId) => {
+  const saved = JSON.parse(localStorage.getItem('lenderPricesConfig') || '{}')
+  return saved?.[lenderId]?.[productId] ?? DEFAULT_PRICES_BY_PRODUCT?.[productId] ?? 0
+}
+
 const getProductConfig = (product, lenderId) => {
-  const savedPrices = JSON.parse(localStorage.getItem('lenderPricesConfig') || '{}')
-  const savedPoints = JSON.parse(localStorage.getItem('lenderPointsConfig') || '{}')
   return {
     ...product,
-    pricePln: savedPrices?.[lenderId]?.[product.id] ?? product.pricePln,
-    pointsReward: savedPoints?.[lenderId]?.[product.id] ?? 0,
+    pricePln: getPriceForProduct(product.id, lenderId) ?? product.pricePln,
+    pointsReward: getPointsForProduct(product.id, lenderId),
   }
 }
 
@@ -1677,42 +1705,32 @@ export default function App() {
                   <span className="vas-badge">Kup teraz</span>
                 </div>
                 <div className="vas-product-grid vas-product-grid-client">
-                  {(() => {
-                    const savedPrices = JSON.parse(
-                      localStorage.getItem('lenderPricesConfig') || '{}',
-                    )
-                    const savedPoints = JSON.parse(
-                      localStorage.getItem('lenderPointsConfig') || '{}',
-                    )
-                    return VAS_PRODUCTS.map((p) => {
-                      const displayPrice =
-                        savedPrices?.[LENDER.id]?.[p.id] ?? p.pricePln
-                      const displayPoints =
-                        savedPoints?.[LENDER.id]?.[p.id] ?? 0
-                      return (
-                        <article key={p.id} className="vas-product-card">
-                          <div className="vas-product-icon" aria-hidden>
-                            {p.icon}
+                  {VAS_PRODUCTS.map((p) => {
+                    const displayPrice = getPriceForProduct(p.id, LENDER.id)
+                    const displayPoints = getPointsForProduct(p.id, LENDER.id)
+                    return (
+                      <article key={p.id} className="vas-product-card">
+                        <div className="vas-product-icon" aria-hidden>
+                          {p.icon}
+                        </div>
+                        <h3 className="vas-h3">{p.name}</h3>
+                        <p className="vas-muted vas-text-sm">{p.description}</p>
+                        <div className="vas-product-price-row">
+                          <div>
+                            <div className="vas-price">{formatMoney(displayPrice)}</div>
                           </div>
-                          <h3 className="vas-h3">{p.name}</h3>
-                          <p className="vas-muted vas-text-sm">{p.description}</p>
-                          <div className="vas-product-price-row">
-                            <div>
-                              <div className="vas-price">{formatMoney(displayPrice)}</div>
-                            </div>
-                            <div className="vas-points-badge">+{displayPoints} pkt</div>
-                          </div>
-                          <button
-                            type="button"
-                            className="vas-btn vas-btn-secondary vas-btn-block"
-                            onClick={() => buyProduct(p)}
-                          >
-                            Kup VAS
-                          </button>
-                        </article>
-                      )
-                    })
-                  })()}
+                          <div className="vas-points-badge">+{displayPoints} pkt</div>
+                        </div>
+                        <button
+                          type="button"
+                          className="vas-btn vas-btn-secondary vas-btn-block"
+                          onClick={() => buyProduct(p)}
+                        >
+                          Kup VAS
+                        </button>
+                      </article>
+                    )
+                  })}
                 </div>
               </section>
             </div>
