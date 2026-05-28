@@ -13,9 +13,9 @@ const STATS_ROW_1_TEMPLATE = [
     foot: 'Łącznie od początku współpracy',
   },
   {
-    id: 'conversion',
-    label: 'Konwersja',
-    foot: 'Klienci w LoyalVAS vs wszyscy klienci pożyczkodawcy',
+    id: 'first-login',
+    label: 'Pierwsze logowanie do LoyalVAS',
+    foot: 'Data pierwszego zakupu VAS klienta pożyczkodawcy',
   },
 ]
 
@@ -196,9 +196,12 @@ export default function LenderDashboard({
 
   const statsRow1 = useMemo(() => {
     const activeCount = activeClients.length
-    const totalClients = baseClients.length || 1
     const vasCount = purchases.length
-    const pct = Math.round((activeCount / totalClients) * 100)
+    const firstPurchaseAt = purchases.reduce((oldest, purchase) => {
+      if (!purchase?.at) return oldest
+      if (!oldest) return purchase.at
+      return new Date(purchase.at) < new Date(oldest) ? purchase.at : oldest
+    }, null)
     return [
       {
         ...STATS_ROW_1_TEMPLATE[0],
@@ -212,11 +215,10 @@ export default function LenderDashboard({
       },
       {
         ...STATS_ROW_1_TEMPLATE[2],
-        value: `${activeCount} z ${totalClients}`,
-        footValue: `${pct}%`,
+        value: firstPurchaseAt ? formatTxDate(firstPurchaseAt) : 'Brak aktywności',
       },
     ]
-  }, [activeClients.length, baseClients.length, purchases.length])
+  }, [activeClients.length, purchases])
 
   const statsRow2 = useMemo(() => {
     const granted = purchases.reduce((s, p) => s + (p.pointsEarned ?? 0), 0)
