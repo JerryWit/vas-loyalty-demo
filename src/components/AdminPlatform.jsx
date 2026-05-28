@@ -9,14 +9,6 @@ const PERIOD_OPTIONS = [
   { id: 'all', label: 'Od początku współpracy' },
 ]
 
-const DEMO_STATIC = {
-  kpis: {
-    totalSales: '2 340 zł',
-    netRevenue: '1 890 zł',
-    avgBasket: '195 zł',
-  },
-}
-
 const EVENT_FILTERS = [
   { id: 'all', label: 'Wszystkie' },
   { id: 'failed', label: 'Failed webhooki' },
@@ -300,7 +292,7 @@ export default function AdminPlatform({
       if (purchase.clientId) current.activeClients.add(purchase.clientId)
       current.purchases += 1
       current.sales += purchase.pricePln ?? 0
-      current.platform += Math.round((purchase.pricePln ?? 0) * 0.85)
+      current.platform += purchase.platformRevenue ?? 0
       current.commissionPts += purchase.lenderPoints ?? 0
       map.set(lenderId, current)
     })
@@ -350,8 +342,8 @@ export default function AdminPlatform({
     {
       id: 'sales',
       label: 'Całkowita sprzedaż VAS',
-      value: DEMO_STATIC.kpis.totalSales,
-      foot: 'Przychód brutto w wybranym okresie',
+      value: formatMoney(settlementModel?.totalVasRevenue ?? 0),
+      foot: 'Przychód brutto z usług dodatkowych',
       dark: true,
     },
     {
