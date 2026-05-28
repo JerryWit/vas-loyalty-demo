@@ -338,13 +338,15 @@ export default function AdminPlatform({
       ? formatMoney((settlementModel?.totalVasRevenue ?? 0) / purchases.length)
       : '—'
 
+  const totalVasRevenueValue = formatMoney(settlementModel?.totalVasRevenue ?? 0)
+
   const kpiRow1 = [
     {
       id: 'sales',
       label: 'Całkowita sprzedaż VAS',
-      value: formatMoney(settlementModel?.totalVasRevenue ?? 0),
+      value: totalVasRevenueValue,
       foot: 'Przychód brutto z usług dodatkowych',
-      dark: true,
+      accent: true,
     },
     {
       id: 'net',
@@ -505,7 +507,7 @@ export default function AdminPlatform({
           {kpiRow1.map((tile) => (
             <article
               key={tile.id}
-              className={`vas-kpi ap-kpi ${tile.dark ? 'ap-kpi--dark' : ''}`}
+              className={`vas-kpi ap-kpi ${tile.accent ? 'vas-kpi-accent' : ''} ${tile.dark ? 'ap-kpi--dark' : ''}`}
             >
               <div className="vas-kpi-label">{tile.label}</div>
               <div className="vas-kpi-value">{tile.value}</div>

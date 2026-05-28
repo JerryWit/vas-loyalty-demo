@@ -1247,22 +1247,6 @@ export default function App() {
                 </section>
 
                 <section className="vas-lender-portal-card">
-                  {lenderPortalRequestStatus?.type === 'loading' ? (
-                    <div
-                      className="vas-mb-md"
-                      style={{
-                        background: '#1f2937',
-                        color: '#ffffff',
-                        borderRadius: 12,
-                        padding: '12px 14px',
-                      }}
-                    >
-                      <p className="vas-mb-z" aria-live="polite">
-                        <span className="vas-lender-pending-spinner" aria-hidden="true" />{' '}
-                        {lenderPortalRequestStatus.message}
-                      </p>
-                    </div>
-                  ) : null}
                   <h2 className="vas-h3 vas-mb-md">Wykorzystaj punkty</h2>
                   <ul className="vas-lender-option-list">
                     {portalRedemptionRows.map((row) => {
@@ -1383,7 +1367,7 @@ export default function App() {
                     </div>
                   </div>
                 ) : null}
-                {lenderPortalResultModal ? (
+                {lenderPortalRequestStatus?.type === 'loading' || lenderPortalResultModal ? (
                   <div
                     role="dialog"
                     aria-modal="true"
@@ -1409,55 +1393,86 @@ export default function App() {
                         textAlign: 'center',
                       }}
                     >
-                      <div
-                        aria-hidden="true"
-                        style={{
-                          fontSize: 64,
-                          lineHeight: 1,
-                          marginBottom: 16,
-                          color: lenderPortalResultModal.type === 'success' ? '#16a34a' : '#f59e0b',
-                        }}
-                      >
-                        {lenderPortalResultModal.type === 'success' ? '✓' : '⚠'}
-                      </div>
-                      <h2 className="vas-h2 vas-mb-sm">
-                        {lenderPortalResultModal.type === 'success'
-                          ? 'Wniosek zaakceptowany!'
-                          : 'Wniosek w trakcie weryfikacji'}
-                      </h2>
-                      {lenderPortalResultModal.type === 'success' ? (
+                      {lenderPortalRequestStatus?.type === 'loading' ? (
                         <>
+                          <div
+                            aria-hidden="true"
+                            style={{
+                              fontSize: 64,
+                              lineHeight: 1,
+                              marginBottom: 16,
+                            }}
+                          >
+                            <span className="vas-lender-pending-spinner" />
+                          </div>
+                          <h2 className="vas-h2 vas-mb-sm">Wysyłamy Twój wniosek...</h2>
                           <p className="vas-mb-sm">
-                            {LENDER.name} zaakceptowała wykorzystanie punktów w programie
-                            lojalnościowym na przedłużenie spłaty pożyczki o 30 dni.
+                            Twój wniosek o przedłużenie spłaty został złożony i oczekuje na
+                            akceptację {LENDER.name}.
+                            <br />
+                            <br />
+                            Pamiętaj — wymiana punktów to złożenie wniosku, nie gwarancja
+                            realizacji. Pożyczkodawca potwierdzi lub odrzuci wniosek w swoim
+                            systemie.
                           </p>
-                          <p className="vas-muted vas-text-sm vas-mb-md">
-                            Szczegóły otrzymasz SMS-em i mailem od {LENDER.name}.
+                          <p className="vas-muted vas-text-sm">
+                            Wysyłamy powiadomienie do {LENDER.name}. Proszę czekać...
                           </p>
                         </>
                       ) : (
-                        <p className="vas-mb-md">
-                          Twój wniosek został przyjęty. Potwierdzenie otrzymasz emailem w ciągu
-                          24h.
-                        </p>
+                        <>
+                          <div
+                            aria-hidden="true"
+                            style={{
+                              fontSize: 64,
+                              lineHeight: 1,
+                              marginBottom: 16,
+                              color:
+                                lenderPortalResultModal.type === 'success' ? '#16a34a' : '#f59e0b',
+                            }}
+                          >
+                            {lenderPortalResultModal.type === 'success' ? '✓' : '⚠'}
+                          </div>
+                          <h2 className="vas-h2 vas-mb-sm">
+                            {lenderPortalResultModal.type === 'success'
+                              ? 'Wniosek zaakceptowany!'
+                              : 'Wniosek w trakcie weryfikacji'}
+                          </h2>
+                          {lenderPortalResultModal.type === 'success' ? (
+                            <>
+                              <p className="vas-mb-sm">
+                                {LENDER.name} zaakceptowała wykorzystanie punktów w programie
+                                lojalnościowym na przedłużenie spłaty pożyczki o 30 dni.
+                              </p>
+                              <p className="vas-muted vas-text-sm vas-mb-md">
+                                Szczegóły otrzymasz SMS-em i mailem od {LENDER.name}.
+                              </p>
+                            </>
+                          ) : (
+                            <p className="vas-mb-md">
+                              Twój wniosek został przyjęty. Potwierdzenie otrzymasz emailem w
+                              ciągu 24h.
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            className="vas-btn vas-btn-block"
+                            style={{
+                              background:
+                                lenderPortalResultModal.type === 'success' ? '#16a34a' : '#1e3a5f',
+                              color: '#ffffff',
+                              borderColor:
+                                lenderPortalResultModal.type === 'success' ? '#16a34a' : '#1e3a5f',
+                            }}
+                            onClick={() => {
+                              setLenderPortalResultModal(null)
+                              leaveLenderPortal()
+                            }}
+                          >
+                            Wróć do swojego konta
+                          </button>
+                        </>
                       )}
-                      <button
-                        type="button"
-                        className="vas-btn vas-btn-block"
-                        style={{
-                          background:
-                            lenderPortalResultModal.type === 'success' ? '#16a34a' : '#1e3a5f',
-                          color: '#ffffff',
-                          borderColor:
-                            lenderPortalResultModal.type === 'success' ? '#16a34a' : '#1e3a5f',
-                        }}
-                        onClick={() => {
-                          setLenderPortalResultModal(null)
-                          leaveLenderPortal()
-                        }}
-                      >
-                        Wróć do swojego konta
-                      </button>
                     </div>
                   </div>
                 ) : null}
