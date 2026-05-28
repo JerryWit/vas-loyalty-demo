@@ -783,36 +783,129 @@ export default function AdminPlatform({
           <div className="ap-section-head">
             <h2 className="ap-section-title">Model rozliczeń (demo)</h2>
           </div>
-          <ul className="vas-checklist">
-            <li>
-              Sprzedaż VAS (przychód brutto):{' '}
-              <strong>{formatMoney(settlementModel.totalVasRevenue)}</strong>
-            </li>
-            <li>
-              Koszt dostawców (Telemedi / TU):{' '}
-              <strong>-{formatMoney(settlementModel.totalProviderCost ?? 0)}</strong>
-            </li>
-            <li>
-              Prowizja pożyczkodawców brutto:{' '}
-              <strong>-{formatMoney(settlementModel.totalLenderCommissionGross ?? 0)}</strong>
-            </li>
-            <li>
-              w tym VAT od prowizji:{' '}
-              <strong>{formatMoney(settlementModel.totalLenderVat ?? 0)}</strong>
-            </li>
-            <li>
-              prowizja netto:{' '}
-              <strong>{formatMoney(settlementModel.totalLenderCommissionNet ?? 0)}</strong>
-            </li>
-            <li>
-              Przychód platformy (marża):{' '}
-              <strong>{formatMoney(settlementModel.totalPlatformRevenue ?? 0)}</strong>
-            </li>
-            <li>
-              Punkty Pożyczkodawcy:{' '}
-              <strong>{settlementModel.lenderPointsTotal ?? 0}</strong>
-            </li>
-          </ul>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div
+              style={{
+                background: '#f3f4f6',
+                borderRadius: 12,
+                padding: '16px 18px',
+              }}
+            >
+              <h3
+                style={{
+                  margin: '0 0 12px',
+                  paddingBottom: 10,
+                  borderBottom: '1px solid #d1d5db',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: '#111827',
+                }}
+              >
+                Platforma
+              </h3>
+              <ul
+                className="vas-checklist"
+                style={{ margin: 0, padding: 0, listStyle: 'none' }}
+              >
+                <li style={{ marginBottom: 8, color: '#111827' }}>
+                  Sprzedaż VAS (przychód brutto):{' '}
+                  <strong>{formatMoney(settlementModel.totalVasRevenue)}</strong>
+                </li>
+                <li style={{ marginBottom: 8, color: '#111827' }}>
+                  Koszt dostawców (Telemedi / TU):{' '}
+                  <strong style={{ color: '#dc2626' }}>
+                    -{formatMoney(settlementModel.totalProviderCost ?? 0)}
+                  </strong>
+                </li>
+                <li style={{ marginBottom: 12, color: '#111827' }}>
+                  Prowizja pożyczkodawców netto:{' '}
+                  <strong style={{ color: '#dc2626' }}>
+                    -{formatMoney(settlementModel.totalLenderCommissionNet ?? 0)}
+                  </strong>
+                </li>
+              </ul>
+              <div
+                style={{
+                  borderTop: '1px solid #d1d5db',
+                  paddingTop: 12,
+                  color: '#111827',
+                }}
+              >
+                Przychód platformy (marża):{' '}
+                <strong
+                  style={{
+                    color: '#16a34a',
+                    fontSize: 18,
+                    fontWeight: 700,
+                  }}
+                >
+                  {formatMoney(settlementModel.totalPlatformRevenue ?? 0)}
+                </strong>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: '#f3f4f6',
+                borderRadius: 12,
+                padding: '16px 18px',
+              }}
+            >
+              <h3
+                style={{
+                  margin: '0 0 12px',
+                  paddingBottom: 10,
+                  borderBottom: '1px solid #d1d5db',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: '#111827',
+                }}
+              >
+                Pożyczkodawcy
+              </h3>
+              <ul
+                className="vas-checklist"
+                style={{ margin: 0, padding: 0, listStyle: 'none' }}
+              >
+                <li style={{ marginBottom: 8, color: '#111827' }}>
+                  Prowizja brutto należna pożyczkodawcom:{' '}
+                  <strong style={{ color: '#dc2626' }}>
+                    {formatMoney(settlementModel.totalLenderCommissionGross ?? 0)}
+                  </strong>
+                </li>
+                <li
+                  style={{
+                    marginBottom: 6,
+                    marginLeft: 16,
+                    fontSize: 13,
+                    color: '#6b7280',
+                  }}
+                >
+                  w tym VAT od prowizji:{' '}
+                  <strong style={{ color: '#6b7280', fontWeight: 600 }}>
+                    {formatMoney(settlementModel.totalLenderVat ?? 0)}
+                  </strong>
+                </li>
+                <li
+                  style={{
+                    marginBottom: 8,
+                    marginLeft: 16,
+                    fontSize: 13,
+                    color: '#6b7280',
+                  }}
+                >
+                  prowizja netto:{' '}
+                  <strong style={{ color: '#6b7280', fontWeight: 600 }}>
+                    {formatMoney(settlementModel.totalLenderCommissionNet ?? 0)}
+                  </strong>
+                </li>
+                <li style={{ color: '#111827' }}>
+                  Punkty Pożyczkodawcy:{' '}
+                  <strong>{settlementModel.lenderPointsTotal ?? 0} pkt</strong>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       ) : null}
 
