@@ -162,6 +162,11 @@ export default function AdminConfig() {
     setSaveMessage('')
   }
 
+  const handleHeaderLogout = () => {
+    handleLogout()
+    window.location.href = '/'
+  }
+
   const updateProduct = (productId, patch) => {
     setConfigs((prev) => ({
       ...prev,
@@ -312,7 +317,24 @@ export default function AdminConfig() {
         </aside>
 
         <main className="admin-config-main">
-          <h1 className="admin-config-page-title">Konfiguracja VAS</h1>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <h1 className="admin-config-page-title">Konfiguracja VAS</h1>
+            <button
+              type="button"
+              className="admin-config-btn admin-config-btn-secondary"
+              style={{ padding: '6px 10px', fontSize: 12 }}
+              onClick={handleHeaderLogout}
+            >
+              ← Wróć do LoyalVAS
+            </button>
+          </div>
 
           <form
             className="admin-config-form"
