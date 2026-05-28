@@ -422,24 +422,15 @@ export default function App() {
   const [lenderPortalLoginError, setLenderPortalLoginError] = useState('')
   const [lenderPortalProlongSuccess, setLenderPortalProlongSuccess] = useState(null)
   const [lenderPortalRequestStatus, setLenderPortalRequestStatus] = useState(null)
+  const [lenderPortalResultModal, setLenderPortalResultModal] = useState(null)
   const prolongAutoConfirmRef = useRef(null)
   const prolongAutoConfirmStartedRef = useRef(null)
   const lenderPortalResponseTimerRef = useRef(null)
-  const lenderPortalHideStatusTimerRef = useRef(null)
-  const lenderPortalRedirectTimerRef = useRef(null)
 
   const clearLenderPortalRequestTimers = useCallback(() => {
     if (lenderPortalResponseTimerRef.current) {
       clearTimeout(lenderPortalResponseTimerRef.current)
       lenderPortalResponseTimerRef.current = null
-    }
-    if (lenderPortalHideStatusTimerRef.current) {
-      clearTimeout(lenderPortalHideStatusTimerRef.current)
-      lenderPortalHideStatusTimerRef.current = null
-    }
-    if (lenderPortalRedirectTimerRef.current) {
-      clearTimeout(lenderPortalRedirectTimerRef.current)
-      lenderPortalRedirectTimerRef.current = null
     }
   }, [])
 
@@ -759,6 +750,7 @@ export default function App() {
     prolongAutoConfirmStartedRef.current = null
     setLenderPortalProlongSuccess(null)
     setLenderPortalRequestStatus(null)
+    setLenderPortalResultModal(null)
     setClientScreen('home')
     setLenderPortalSelectedId('')
     setLenderPortalLoginError('')
@@ -953,19 +945,12 @@ export default function App() {
     })
     const selectedId = lenderPortalSelectedId
     const clientId = lenderPortalClient.id
-    const responseDelayMs = 10000 + Math.floor(Math.random() * 2001)
+    const responseDelayMs = 2000 + Math.floor(Math.random() * 1001)
     lenderPortalResponseTimerRef.current = setTimeout(() => {
       const webhookFailed = Math.random() < 0.2
       if (webhookFailed) {
-        setLenderPortalRequestStatus({
-          type: 'warning',
-          message:
-            'Twój wniosek jest w trakcie weryfikacji — potwierdzenie otrzymasz emailem w ciągu 24h.',
-        })
-        lenderPortalRedirectTimerRef.current = setTimeout(() => {
-          setLenderPortalRequestStatus(null)
-          leaveLenderPortal()
-        }, 10000)
+        setLenderPortalRequestStatus(null)
+        setLenderPortalResultModal({ type: 'warning' })
         return
       }
       const redemptionId = confirmRedemptionViaLenderApi(clientId, selectedId, {
@@ -973,34 +958,16 @@ export default function App() {
         channel: 'portal',
       })
       if (!redemptionId) {
-        setLenderPortalRequestStatus({
-          type: 'warning',
-          message:
-            'Twój wniosek jest w trakcie weryfikacji — potwierdzenie otrzymasz emailem w ciągu 24h.',
-        })
-        lenderPortalRedirectTimerRef.current = setTimeout(() => {
-          setLenderPortalRequestStatus(null)
-          leaveLenderPortal()
-        }, 10000)
+        setLenderPortalRequestStatus(null)
+        setLenderPortalResultModal({ type: 'warning' })
         return
       }
       if (isProlongationCatalogId(selectedId)) {
         confirmProlongationByPlatform(redemptionId, { silent: true })
       }
       setLenderPortalSelectedId('')
-      setLenderPortalRequestStatus({
-        type: 'success',
-        message: `✓ ${LENDER.name} zaakceptowała Twój wniosek.
-Przedłużenie spłaty zostało potwierdzone.
-Szczegóły otrzymasz SMS-em i mailem od ${LENDER.name}.`,
-      })
-      lenderPortalHideStatusTimerRef.current = setTimeout(() => {
-        setLenderPortalRequestStatus(null)
-      }, 4000)
-      lenderPortalRedirectTimerRef.current = setTimeout(() => {
-        setLenderPortalRequestStatus(null)
-        leaveLenderPortal()
-      }, 12000)
+      setLenderPortalRequestStatus(null)
+      setLenderPortalResultModal({ type: 'success' })
     }, responseDelayMs)
   }
 
@@ -1017,6 +984,7 @@ Szczegóły otrzymasz SMS-em i mailem od ${LENDER.name}.`,
     setLenderPortalSelectedId('')
     setLenderPortalProlongSuccess(null)
     setLenderPortalRequestStatus(null)
+    setLenderPortalResultModal(null)
     prolongAutoConfirmStartedRef.current = null
     if (prolongAutoConfirmRef.current) {
       clearTimeout(prolongAutoConfirmRef.current)
@@ -1251,35 +1219,20 @@ Szczegóły otrzymasz SMS-em i mailem od ${LENDER.name}.`,
                 </section>
 
                 <section className="vas-lender-portal-card">
-                  {lenderPortalRequestStatus ? (
+                  {lenderPortalRequestStatus?.type === 'loading' ? (
                     <div
                       className="vas-mb-md"
                       style={{
-                        background:
-                          lenderPortalRequestStatus.type === 'success'
-                            ? '#16a34a'
-                            : lenderPortalRequestStatus.type === 'warning'
-                              ? '#facc15'
-                              : '#1f2937',
-                        color:
-                          lenderPortalRequestStatus.type === 'warning'
-                            ? '#111827'
-                            : '#ffffff',
+                        background: '#1f2937',
+                        color: '#ffffff',
                         borderRadius: 12,
                         padding: '12px 14px',
-                        whiteSpace: 'pre-line',
                       }}
                     >
-                      {lenderPortalRequestStatus.type === 'loading' ? (
-                        <p className="vas-mb-z" aria-live="polite">
-                          <span className="vas-lender-pending-spinner" aria-hidden="true" />{' '}
-                          {lenderPortalRequestStatus.message}
-                        </p>
-                      ) : (
-                        <p className="vas-mb-z" aria-live="polite">
-                          {lenderPortalRequestStatus.message}
-                        </p>
-                      )}
+                      <p className="vas-mb-z" aria-live="polite">
+                        <span className="vas-lender-pending-spinner" aria-hidden="true" />{' '}
+                        {lenderPortalRequestStatus.message}
+                      </p>
                     </div>
                   ) : null}
                   <h2 className="vas-h3 vas-mb-md">Wykorzystaj punkty</h2>
@@ -1399,6 +1352,84 @@ Szczegóły otrzymasz SMS-em i mailem od ${LENDER.name}.`,
                           Wróć do ofert produktów VAS
                         </button>
                       </div>
+                    </div>
+                  </div>
+                ) : null}
+                {lenderPortalResultModal ? (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    style={{
+                      position: 'fixed',
+                      inset: 0,
+                      background: 'rgba(0,0,0,0.6)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1200,
+                      padding: 16,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: '#ffffff',
+                        borderRadius: 16,
+                        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)',
+                        width: '100%',
+                        maxWidth: 420,
+                        padding: 32,
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          fontSize: 64,
+                          lineHeight: 1,
+                          marginBottom: 16,
+                          color: lenderPortalResultModal.type === 'success' ? '#16a34a' : '#f59e0b',
+                        }}
+                      >
+                        {lenderPortalResultModal.type === 'success' ? '✓' : '⚠'}
+                      </div>
+                      <h2 className="vas-h2 vas-mb-sm">
+                        {lenderPortalResultModal.type === 'success'
+                          ? 'Wniosek zaakceptowany!'
+                          : 'Wniosek w trakcie weryfikacji'}
+                      </h2>
+                      {lenderPortalResultModal.type === 'success' ? (
+                        <>
+                          <p className="vas-mb-sm">
+                            {LENDER.name} zaakceptowała wykorzystanie punktów w programie
+                            lojalnościowym na przedłużenie spłaty pożyczki o 30 dni.
+                          </p>
+                          <p className="vas-muted vas-text-sm vas-mb-md">
+                            Szczegóły otrzymasz SMS-em i mailem od {LENDER.name}.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="vas-mb-md">
+                          Twój wniosek został przyjęty. Potwierdzenie otrzymasz emailem w ciągu
+                          24h.
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        className="vas-btn vas-btn-block"
+                        style={{
+                          background:
+                            lenderPortalResultModal.type === 'success' ? '#16a34a' : '#1e3a5f',
+                          color: '#ffffff',
+                          borderColor:
+                            lenderPortalResultModal.type === 'success' ? '#16a34a' : '#1e3a5f',
+                        }}
+                        onClick={() => {
+                          setLenderPortalResultModal(null)
+                          leaveLenderPortal()
+                        }}
+                      >
+                        Wróć do swojego konta
+                      </button>
                     </div>
                   </div>
                 ) : null}
