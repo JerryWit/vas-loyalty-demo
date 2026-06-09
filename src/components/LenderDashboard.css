@@ -210,6 +210,11 @@
   color: #1e40af;
 }
 
+.ld-event-badge--grant {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 .ld-event-badge--expiry {
   background: #f1f5f9;
   color: #475569;

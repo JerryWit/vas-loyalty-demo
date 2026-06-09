@@ -146,6 +146,7 @@ export default function LenderDashboard({
   lenderName = 'EkspresPożyczka',
   lenderId = 'ekspres',
   purchases = [],
+  pointsHistory = [],
   lenderRedemptions = [],
   pointsByClient = {},
   lenderPointsTotal = 0,
@@ -174,10 +175,13 @@ export default function LenderDashboard({
       .map((c) => {
         const clientPurchases = purchases.filter((p) => p.clientId === c.id)
         const clientRedemptions = lenderRedemptions.filter((r) => r.clientId === c.id)
-        const pointsEarned = clientPurchases.reduce(
-          (s, p) => s + (p.pointsEarned ?? 0),
-          0,
-        )
+        const clientPointsHistory = pointsHistory.filter((entry) => entry.clientId === c.id)
+        const pointsFromVas = clientPointsHistory
+          .filter((entry) => entry.source === 'vas_purchase')
+          .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
+        const pointsGrantedByLender = clientPointsHistory
+          .filter((entry) => entry.source === 'lender' && entry.lenderId === lenderId)
+          .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
         const pointsUsed = clientRedemptions.reduce(
           (s, r) => s + getRedemptionPointsCost(r),
           0,
@@ -192,7 +196,8 @@ export default function LenderDashboard({
           firstLoginAt: formatTxDate(clientLogins[c.id]?.lastAt),
           daysToRepayment: getDaysToRepayment(c, repaymentExtraDays),
           vasCount: clientPurchases.length,
-          pointsEarned,
+          pointsFromVas,
+          pointsGrantedByLender,
           pointsUsed,
           pointsAvailable: pointsByClient[c.id] ?? 0,
           commissionPts,
@@ -202,6 +207,8 @@ export default function LenderDashboard({
     baseClients,
     clientLogins,
     purchases,
+    pointsHistory,
+    lenderId,
     lenderRedemptions,
     pointsByClient,
     repaymentExtraDays,
@@ -243,6 +250,14 @@ export default function LenderDashboard({
     ]
   }, [purchases, lenderRedemptions, lenderPointsTotal])
 
+  const lenderGrantedPointsTotal = useMemo(
+    () =>
+      pointsHistory
+        .filter((entry) => entry.source === 'lender' && entry.lenderId === lenderId)
+        .reduce((sum, entry) => sum + (entry.points ?? 0), 0),
+    [pointsHistory, lenderId],
+  )
+
   const transactions = useMemo(() => {
     const purchaseRows = purchases.map((p) => {
       const c = clientById[p.clientId]
@@ -257,6 +272,21 @@ export default function LenderDashboard({
         at: p.at,
       }
     })
+    const grantRows = pointsHistory
+      .filter((entry) => entry.source === 'lender' && entry.lenderId === lenderId)
+      .map((entry) => {
+        const c = clientById[entry.clientId]
+        return {
+          date: formatTxDate(entry.at),
+          client: c?.name ?? '—',
+          loanNumber: c?.loanNumber ?? '—',
+          type: 'grant',
+          typeLabel: 'Punkty nadane',
+          points: `+${entry.points ?? 0} pkt`,
+          commission: '—',
+          at: entry.at,
+        }
+      })
     const redemptionRows = lenderRedemptions.map((r) => {
       const c = clientById[r.clientId]
       const isProlong = PROLONG_CATALOG_IDS.has(r.catalogId)
@@ -271,10 +301,10 @@ export default function LenderDashboard({
         at: r.at,
       }
     })
-    return [...purchaseRows, ...redemptionRows].sort(
+    return [...purchaseRows, ...grantRows, ...redemptionRows].sort(
       (a, b) => new Date(b.at) - new Date(a.at),
     )
-  }, [purchases, lenderRedemptions, clientById])
+  }, [purchases, pointsHistory, lenderId, lenderRedemptions, clientById])
 
   const webhookPayload = useMemo(() => {
     const benefit = WEBHOOK_BENEFITS.find((b) => b.id === webhookBenefitId) ?? WEBHOOK_BENEFITS[1]
@@ -350,6 +380,13 @@ export default function LenderDashboard({
             </article>
           ))}
         </div>
+        <div className="ld-kpi-grid ld-kpi-grid--row2">
+          <article className="vas-kpi ld-kpi">
+            <div className="vas-kpi-label">Punkty nadane przez Ciebie</div>
+            <div className="vas-kpi-value">{lenderGrantedPointsTotal} pkt</div>
+            <div className="vas-kpi-foot">Łącznie przyznane klientom</div>
+          </article>
+        </div>
       </section>
 
       <section className="ld-card" aria-labelledby="ld-clients-heading">
@@ -363,7 +400,8 @@ export default function LenderDashboard({
                 <th>Pierwsze logowanie</th>
                 <th>Dni do spłaty</th>
                 <th>Zakupione VAS</th>
-                <th>Punkty zdobyte</th>
+                <th>Punkty z VAS</th>
+                <th>Punkty nadane przez {lenderName}</th>
                 <th>Punkty wykorzystane</th>
                 <th>Punkty dostępne</th>
                 <th>Punkty Pożyczkodawcy</th>
@@ -372,7 +410,7 @@ export default function LenderDashboard({
             <tbody>
               {activeClients.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="ld-empty">
+                  <td colSpan={10} className="ld-empty">
                     Brak klientów z logowaniem w LoyalVAS (demo).
                   </td>
                 </tr>
@@ -394,7 +432,8 @@ export default function LenderDashboard({
                       </span>
                     </td>
                     <td>{row.vasCount}</td>
-                    <td>{row.pointsEarned} pkt</td>
+                    <td>{row.pointsFromVas} pkt</td>
+                    <td>{row.pointsGrantedByLender} pkt</td>
                     <td>{row.pointsUsed} pkt</td>
                     <td>
                       <strong>{row.pointsAvailable} pkt</strong>

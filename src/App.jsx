@@ -581,21 +581,57 @@ export default function App() {
     ? pointsByClient[sessionClient.id] ?? sessionClient.basePoints
     : 0
 
-  const clientPointsBreakdown = useMemo(() => {
-    if (!clientSessionId) return { vas: 0, lender: 0, total: 0 }
-    const entries = pointsHistory.filter((entry) => entry.clientId === clientSessionId)
-    const vas = entries
-      .filter((entry) => entry.source === 'vas_purchase')
-      .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
-    const lender = entries
-      .filter((entry) => entry.source === 'lender')
-      .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
-    return {
-      vas,
-      lender,
-      total: pointsByClient[clientSessionId] ?? 0,
-    }
-  }, [clientSessionId, pointsHistory, pointsByClient])
+  const clientPointsHistory = useMemo(() => {
+    if (!clientSessionId) return []
+    const now = new Date()
+    const rows = []
+
+    pointsHistory
+      .filter((entry) => entry.clientId === clientSessionId)
+      .forEach((entry) => {
+        if (entry.source === 'vas_purchase') {
+          rows.push({
+            id: entry.id,
+            at: entry.at,
+            kind: 'vas_purchase',
+            eventLabel: `Zakup VAS — ${entry.reason}`,
+            points: entry.points ?? 0,
+          })
+        } else if (entry.source === 'lender') {
+          rows.push({
+            id: entry.id,
+            at: entry.at,
+            kind: 'lender',
+            eventLabel: `Od ${LENDER.name} — ${GRANT_REASON_LABELS[entry.reason] ?? entry.reason}`,
+            points: entry.points ?? 0,
+          })
+        }
+        if (entry.expiresAt && new Date(entry.expiresAt) < now) {
+          rows.push({
+            id: `${entry.id}-expiry`,
+            at: entry.expiresAt,
+            kind: 'expiry',
+            eventLabel: 'Wygaśnięcie punktów',
+            points: -(entry.points ?? 0),
+          })
+        }
+      })
+
+    lenderRedemptions
+      .filter((redemption) => redemption.clientId === clientSessionId)
+      .forEach((redemption) => {
+        const cost = redemption.pointsCost ?? redemption.points ?? 0
+        rows.push({
+          id: redemption.id,
+          at: redemption.at,
+          kind: 'redeem',
+          eventLabel: `Wymiana na ${redemption.optionLabel ?? 'korzyść'}`,
+          points: -cost,
+        })
+      })
+
+    return rows.sort((a, b) => new Date(b.at) - new Date(a.at))
+  }, [clientSessionId, pointsHistory, lenderRedemptions])
 
   const lenderPortalClient = useMemo(() => {
     if (!lenderPortalClientId) return null
@@ -680,43 +716,6 @@ export default function App() {
     })
     return Object.values(map).sort((a, b) => b.lastAt.localeCompare(a.lastAt))
   }, [clientPurchases])
-
-  const purchaseHistoryOnly = useMemo(() => {
-    const fromPurchases = clientPurchases.map((p) => ({
-      id: p.id,
-      at: p.at,
-      label: p.productName,
-      detail: formatMoney(p.pricePln),
-      points: p.pointsEarned,
-      source: 'vas_purchase',
-    }))
-    const fromLender = pointsHistory
-      .filter((entry) => entry.clientId === clientSessionId && entry.source === 'lender')
-      .map((entry) => ({
-        id: entry.id,
-        at: entry.at,
-        label: GRANT_REASON_LABELS[entry.reason] ?? entry.reason,
-        detail: '—',
-        points: entry.points,
-        source: 'lender',
-      }))
-    return [...fromPurchases, ...fromLender].sort(
-      (a, b) => new Date(b.at) - new Date(a.at),
-    )
-  }, [clientPurchases, pointsHistory, clientSessionId])
-
-  const clientActivityTimeline = useMemo(() => {
-    if (!clientSessionId) return []
-    return purchases
-      .filter((p) => p.clientId === clientSessionId)
-      .map((p) => ({
-        kind: 'purchase',
-        at: p.at,
-        label: `Zakup: ${p.productName}`,
-        detail: `${formatMoney(p.pricePln)} · +${p.pointsEarned} pkt`,
-      }))
-      .sort((a, b) => new Date(b.at) - new Date(a.at))
-  }, [purchases, clientSessionId])
 
   const clientRedemptionHistory = useMemo(() => {
     if (!clientSessionId) return []
@@ -1809,15 +1808,8 @@ export default function App() {
                   </p>
                 </div>
                 <div className="vas-client-points-hero">
-                  <span className="vas-client-points-label">Saldo punktów</span>
-                  <div className="vas-text-sm" style={{ marginTop: 8, textAlign: 'right' }}>
-                    <div>Punkty z zakupów VAS: {clientPointsBreakdown.vas} pkt</div>
-                    <div>
-                      Punkty od {LENDER.name}: {clientPointsBreakdown.lender} pkt
-                    </div>
-                    <div style={{ fontWeight: 700, marginTop: 4 }}>
-                      Łącznie: {clientPointsBreakdown.total} pkt
-                    </div>
+                  <div className="vas-client-points-num" style={{ fontSize: 22, marginTop: 0 }}>
+                    SALDO PUNKTÓW: {pointsSession} pkt
                   </div>
                 </div>
               </div>
@@ -2008,40 +2000,31 @@ export default function App() {
             </div>
 
             <div className="vas-mt-lg">
-              <section className="vas-card vas-card-elevated" aria-labelledby="history-title">
+              <section className="vas-card vas-card-elevated" aria-labelledby="points-history-title">
                 <div className="vas-card-head">
-                  <h2 id="history-title" className="vas-h2">
-                    Historia zakupów
+                  <h2 id="points-history-title" className="vas-h2">
+                    Historia punktów
                   </h2>
                   <span className="vas-badge vas-badge-green">Tylko Twoje</span>
                 </div>
-                {purchaseHistoryOnly.length === 0 ? (
-                  <p className="vas-muted">Brak zakupów na koncie.</p>
+                {clientPointsHistory.length === 0 ? (
+                  <p className="vas-muted">Brak transakcji punktowych.</p>
                 ) : (
                   <div className="vas-table-wrap vas-table-wrap-tight">
                     <table className="vas-table vas-table-compact">
                       <thead>
                         <tr>
                           <th>Data</th>
-                          <th>Źródło</th>
-                          <th>Opis</th>
-                          <th>Kwota</th>
+                          <th>Zdarzenie</th>
                           <th>Punkty</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {purchaseHistoryOnly.map((row) => (
+                        {clientPointsHistory.map((row) => (
                           <tr key={row.id}>
                             <td>{formatDate(row.at)}</td>
                             <td>
-                              {row.source === 'vas_purchase' ? (
-                                <span
-                                  className="vas-badge vas-badge-green"
-                                  style={{ fontSize: 11 }}
-                                >
-                                  Zakup VAS
-                                </span>
-                              ) : (
+                              {row.kind === 'lender' ? (
                                 <span
                                   className="vas-badge"
                                   style={{
@@ -2049,42 +2032,68 @@ export default function App() {
                                     background: '#dbeafe',
                                     color: '#1d4ed8',
                                     borderColor: '#93c5fd',
+                                    marginRight: 8,
                                   }}
                                 >
                                   Od {LENDER.name}
                                 </span>
+                              ) : row.kind === 'vas_purchase' ? (
+                                <span
+                                  className="vas-badge vas-badge-green"
+                                  style={{ fontSize: 11, marginRight: 8 }}
+                                >
+                                  Zakup VAS
+                                </span>
+                              ) : row.kind === 'redeem' ? (
+                                <span
+                                  className="vas-badge"
+                                  style={{
+                                    fontSize: 11,
+                                    background: '#fee2e2',
+                                    color: '#b91c1c',
+                                    borderColor: '#fecaca',
+                                    marginRight: 8,
+                                  }}
+                                >
+                                  Wymiana punktów
+                                </span>
+                              ) : (
+                                <span
+                                  className="vas-badge"
+                                  style={{
+                                    fontSize: 11,
+                                    background: '#f3f4f6',
+                                    color: '#6b7280',
+                                    borderColor: '#e5e7eb',
+                                    marginRight: 8,
+                                  }}
+                                >
+                                  Wygaśnięcie
+                                </span>
                               )}
+                              {row.eventLabel}
                             </td>
-                            <td>{row.label}</td>
-                            <td>{row.detail}</td>
                             <td>
-                              <span className="vas-tag-pos">+{row.points}</span>
+                              {row.points >= 0 ? (
+                                <span className="vas-tag-pos">+{row.points}</span>
+                              ) : (
+                                <span className="vas-tag-neg">{row.points}</span>
+                              )}
                             </td>
                           </tr>
                         ))}
+                        <tr>
+                          <td />
+                          <td>
+                            <strong>Saldo</strong>
+                          </td>
+                          <td>
+                            <strong>{pointsSession} pkt</strong>
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
-                )}
-                <div className="vas-divider vas-mt-md" />
-                <div className="vas-card-head vas-mb-z">
-                  <h3 className="vas-h3">Aktywność na koncie</h3>
-                </div>
-                {clientActivityTimeline.length === 0 ? (
-                  <p className="vas-muted vas-text-sm">Brak wpisów.</p>
-                ) : (
-                  <ul className="vas-timeline vas-timeline-compact">
-                    {clientActivityTimeline.slice(0, 6).map((h, idx) => (
-                      <li key={`${h.at}-${idx}`} className="vas-tl-item">
-                        <div className="vas-tl-dot" />
-                        <div className="vas-tl-card">
-                          <div className="vas-tl-date">{formatDate(h.at)}</div>
-                          <div className="vas-tl-title">{h.label}</div>
-                          <div className="vas-tl-meta">{h.detail}</div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
                 )}
               </section>
             </div>
@@ -2118,6 +2127,7 @@ export default function App() {
                 lenderName={LENDER.name}
                 lenderId={LENDER.id}
                 purchases={purchases}
+                pointsHistory={pointsHistory}
                 lenderRedemptions={lenderRedemptions}
                 pointsByClient={pointsByClient}
                 lenderPointsTotal={lenderPointsTotal}
