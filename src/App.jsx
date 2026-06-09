@@ -12,6 +12,22 @@ import './App.css'
 
 const STORAGE_KEY = 'vas-eksprespozyczka-demo-v1'
 const STORAGE_KEY_LEGACY = 'vas-smartpozyczka-demo-v1'
+const VAS_POINTS_EXPIRY_DAYS = 365
+const LENDER_POINTS_EXPIRY_KEY = 'lenderPointsExpiry'
+
+const DEFAULT_LENDER_POINTS_EXPIRY = {
+  ekspres: 365,
+  kredytok: 730,
+  szybkagotowka: 365,
+  pozyczkaplus: null,
+}
+
+const GRANT_REASON_LABELS = {
+  powitalne: 'Punkty powitalne',
+  terminowa_splata: 'Terminowa spłata',
+  wysoka_kwota: 'Wysoka kwota pożyczki',
+  kolejna_pozyczka: 'Kolejna pożyczka',
+}
 
 const BASE_CLIENTS = [
   {
@@ -303,10 +319,15 @@ function buildInitialState() {
       : {}
 
   const purchases = Array.isArray(persisted?.purchases) ? persisted.purchases : []
+  let pointsHistory = Array.isArray(persisted?.pointsHistory) ? persisted.pointsHistory : []
+  if (pointsHistory.length === 0 && purchases.length > 0) {
+    pointsHistory = buildPointsHistoryFromPurchases(purchases)
+  }
 
   return {
     pointsByClient,
     purchases,
+    pointsHistory,
     lenderRedemptions,
     clientLogins,
     repaymentExtraDays,
@@ -334,6 +355,42 @@ function formatDate(iso) {
 
 function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function getLenderPointsExpiryConfig() {
+  try {
+    const raw = localStorage.getItem(LENDER_POINTS_EXPIRY_KEY)
+    if (!raw) return { ...DEFAULT_LENDER_POINTS_EXPIRY }
+    const parsed = JSON.parse(raw)
+    return { ...DEFAULT_LENDER_POINTS_EXPIRY, ...parsed }
+  } catch {
+    return { ...DEFAULT_LENDER_POINTS_EXPIRY }
+  }
+}
+
+function computePointsExpiresAt(source, lenderId, atIso = new Date().toISOString()) {
+  const at = new Date(atIso)
+  if (source === 'vas_purchase') {
+    at.setDate(at.getDate() + VAS_POINTS_EXPIRY_DAYS)
+    return at.toISOString()
+  }
+  const expiryDays = getLenderPointsExpiryConfig()[lenderId]
+  if (expiryDays == null) return null
+  at.setDate(at.getDate() + expiryDays)
+  return at.toISOString()
+}
+
+function buildPointsHistoryFromPurchases(purchases) {
+  return purchases.map((purchase) => ({
+    id: `ph-${purchase.id}`,
+    clientId: purchase.clientId,
+    lenderId: LENDER.id,
+    points: purchase.pointsEarned ?? 0,
+    source: 'vas_purchase',
+    reason: purchase.productName ?? 'vas_purchase',
+    at: purchase.at,
+    expiresAt: computePointsExpiresAt('vas_purchase', LENDER.id, purchase.at),
+  }))
 }
 
 function startOfDay(d) {
@@ -431,6 +488,7 @@ export default function App() {
     buildInitialState().pointsByClient,
   )
   const [purchases, setPurchases] = useState(() => buildInitialState().purchases)
+  const [pointsHistory, setPointsHistory] = useState(() => buildInitialState().pointsHistory)
   const [lenderRedemptions, setLenderRedemptions] = useState(
     () => buildInitialState().lenderRedemptions,
   )
@@ -466,6 +524,7 @@ export default function App() {
     (
       nextPoints,
       nextPurchases,
+      nextPointsHistory,
       nextRedemptions,
       nextLogins,
       nextRepaymentExtra,
@@ -476,6 +535,7 @@ export default function App() {
         JSON.stringify({
           pointsByClient: nextPoints,
           purchases: nextPurchases,
+          pointsHistory: nextPointsHistory,
           lenderRedemptions: nextRedemptions,
           clientLogins: nextLogins,
           repaymentExtraDays: nextRepaymentExtra,
@@ -490,6 +550,7 @@ export default function App() {
     persist(
       pointsByClient,
       purchases,
+      pointsHistory,
       lenderRedemptions,
       clientLogins,
       repaymentExtraDays,
@@ -498,6 +559,7 @@ export default function App() {
   }, [
     pointsByClient,
     purchases,
+    pointsHistory,
     lenderRedemptions,
     clientLogins,
     repaymentExtraDays,
@@ -518,6 +580,22 @@ export default function App() {
   const pointsSession = sessionClient
     ? pointsByClient[sessionClient.id] ?? sessionClient.basePoints
     : 0
+
+  const clientPointsBreakdown = useMemo(() => {
+    if (!clientSessionId) return { vas: 0, lender: 0, total: 0 }
+    const entries = pointsHistory.filter((entry) => entry.clientId === clientSessionId)
+    const vas = entries
+      .filter((entry) => entry.source === 'vas_purchase')
+      .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
+    const lender = entries
+      .filter((entry) => entry.source === 'lender')
+      .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
+    return {
+      vas,
+      lender,
+      total: pointsByClient[clientSessionId] ?? 0,
+    }
+  }, [clientSessionId, pointsHistory, pointsByClient])
 
   const lenderPortalClient = useMemo(() => {
     if (!lenderPortalClientId) return null
@@ -604,14 +682,28 @@ export default function App() {
   }, [clientPurchases])
 
   const purchaseHistoryOnly = useMemo(() => {
-    return clientPurchases.map((p) => ({
+    const fromPurchases = clientPurchases.map((p) => ({
       id: p.id,
       at: p.at,
-      productName: p.productName,
-      pricePln: p.pricePln,
-      pointsEarned: p.pointsEarned,
+      label: p.productName,
+      detail: formatMoney(p.pricePln),
+      points: p.pointsEarned,
+      source: 'vas_purchase',
     }))
-  }, [clientPurchases])
+    const fromLender = pointsHistory
+      .filter((entry) => entry.clientId === clientSessionId && entry.source === 'lender')
+      .map((entry) => ({
+        id: entry.id,
+        at: entry.at,
+        label: GRANT_REASON_LABELS[entry.reason] ?? entry.reason,
+        detail: '—',
+        points: entry.points,
+        source: 'lender',
+      }))
+    return [...fromPurchases, ...fromLender].sort(
+      (a, b) => new Date(b.at) - new Date(a.at),
+    )
+  }, [clientPurchases, pointsHistory, clientSessionId])
 
   const clientActivityTimeline = useMemo(() => {
     if (!clientSessionId) return []
@@ -657,6 +749,14 @@ export default function App() {
   const totalPlatformRevenue = useMemo(
     () => purchases.reduce((s, p) => s + (p.platformRevenue ?? 0), 0),
     [purchases],
+  )
+
+  const totalLenderGrantedPoints = useMemo(
+    () =>
+      pointsHistory
+        .filter((entry) => entry.source === 'lender')
+        .reduce((sum, entry) => sum + (entry.points ?? 0), 0),
+    [pointsHistory],
   )
 
   const handleLoanLogin = (e) => {
@@ -734,6 +834,7 @@ export default function App() {
       currentPrice - lenderCommissionGross - configuredProduct.providerCost
     const lenderPoints = Math.round(currentPrice * configuredProduct.lenderCommissionRate)
 
+    const purchasedAt = new Date().toISOString()
     const entry = {
       id: uid(),
       clientId: sessionClient.id,
@@ -750,15 +851,51 @@ export default function App() {
       platformRevenue,
       vatOnCommission: configuredProduct.vatOnCommission,
       tuName: configuredProduct.tuName ?? null,
-      at: new Date().toISOString(),
+      source: 'vas_purchase',
+      at: purchasedAt,
+    }
+    const pointsEntry = {
+      id: uid(),
+      clientId: sessionClient.id,
+      lenderId: LENDER.id,
+      points: pointsEarned,
+      source: 'vas_purchase',
+      reason: configuredProduct.name,
+      at: purchasedAt,
+      expiresAt: computePointsExpiresAt('vas_purchase', LENDER.id, purchasedAt),
     }
     setPurchases((prev) => [entry, ...prev])
+    setPointsHistory((prev) => [pointsEntry, ...prev])
     setPointsByClient((prev) => ({
       ...prev,
       [sessionClient.id]: (prev[sessionClient.id] ?? 0) + pointsEarned,
     }))
     setLenderPointsTotal((prev) => prev + lenderPoints)
     showToast(`Dodano ${configuredProduct.name}. +${pointsEarned} pkt.`)
+  }
+
+  const grantLenderPoints = (clientId, points, reason, lenderId) => {
+    const client = BASE_CLIENTS.find((c) => c.id === clientId)
+    if (!client) return false
+    const grantedPoints = Math.max(0, Number(points) || 0)
+    if (grantedPoints <= 0) return false
+    const grantedAt = new Date().toISOString()
+    const entry = {
+      id: uid(),
+      clientId,
+      lenderId,
+      points: grantedPoints,
+      source: 'lender',
+      reason,
+      at: grantedAt,
+      expiresAt: computePointsExpiresAt('lender', lenderId, grantedAt),
+    }
+    setPointsHistory((prev) => [entry, ...prev])
+    setPointsByClient((prev) => ({
+      ...prev,
+      [clientId]: (prev[clientId] ?? client.basePoints) + grantedPoints,
+    }))
+    return true
   }
 
   const openLenderPortal = () => {
@@ -1002,6 +1139,7 @@ export default function App() {
   const resetDemo = () => {
     setPointsByClient({})
     setPurchases([])
+    setPointsHistory([])
     setLenderRedemptions([])
     setRepaymentExtraDays({})
     setLenderPointsTotal(0)
@@ -1672,7 +1810,15 @@ export default function App() {
                 </div>
                 <div className="vas-client-points-hero">
                   <span className="vas-client-points-label">Saldo punktów</span>
-                  <span className="vas-client-points-num">{pointsSession}</span>
+                  <div className="vas-text-sm" style={{ marginTop: 8, textAlign: 'right' }}>
+                    <div>Punkty z zakupów VAS: {clientPointsBreakdown.vas} pkt</div>
+                    <div>
+                      Punkty od {LENDER.name}: {clientPointsBreakdown.lender} pkt
+                    </div>
+                    <div style={{ fontWeight: 700, marginTop: 4 }}>
+                      Łącznie: {clientPointsBreakdown.total} pkt
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -1877,7 +2023,8 @@ export default function App() {
                       <thead>
                         <tr>
                           <th>Data</th>
-                          <th>Produkt</th>
+                          <th>Źródło</th>
+                          <th>Opis</th>
                           <th>Kwota</th>
                           <th>Punkty</th>
                         </tr>
@@ -1886,10 +2033,32 @@ export default function App() {
                         {purchaseHistoryOnly.map((row) => (
                           <tr key={row.id}>
                             <td>{formatDate(row.at)}</td>
-                            <td>{row.productName}</td>
-                            <td>{formatMoney(row.pricePln)}</td>
                             <td>
-                              <span className="vas-tag-pos">+{row.pointsEarned}</span>
+                              {row.source === 'vas_purchase' ? (
+                                <span
+                                  className="vas-badge vas-badge-green"
+                                  style={{ fontSize: 11 }}
+                                >
+                                  Zakup VAS
+                                </span>
+                              ) : (
+                                <span
+                                  className="vas-badge"
+                                  style={{
+                                    fontSize: 11,
+                                    background: '#dbeafe',
+                                    color: '#1d4ed8',
+                                    borderColor: '#93c5fd',
+                                  }}
+                                >
+                                  Od {LENDER.name}
+                                </span>
+                              )}
+                            </td>
+                            <td>{row.label}</td>
+                            <td>{row.detail}</td>
+                            <td>
+                              <span className="vas-tag-pos">+{row.points}</span>
                             </td>
                           </tr>
                         ))}
@@ -1947,6 +2116,7 @@ export default function App() {
 
               <LenderDashboard
                 lenderName={LENDER.name}
+                lenderId={LENDER.id}
                 purchases={purchases}
                 lenderRedemptions={lenderRedemptions}
                 pointsByClient={pointsByClient}
@@ -1954,6 +2124,7 @@ export default function App() {
                 clientLogins={clientLogins}
                 repaymentExtraDays={repaymentExtraDays}
                 baseClients={BASE_CLIENTS}
+                onGrantLenderPoints={grantLenderPoints}
               />
             </section>
           </main>
@@ -1996,6 +2167,7 @@ export default function App() {
                   totalLenderCommissionNet,
                   totalLenderVat,
                   totalPlatformRevenue,
+                  totalLenderGrantedPoints,
                   lenderName: LENDER.name,
                   commissionPercent: LENDER.commissionPercent,
                   lenderPointsTotal,

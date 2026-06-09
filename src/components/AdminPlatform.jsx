@@ -903,6 +903,19 @@ export default function AdminPlatform({
                   Punkty Pożyczkodawcy:{' '}
                   <strong>{settlementModel.lenderPointsTotal ?? 0} pkt</strong>
                 </li>
+                <li
+                  style={{
+                    marginTop: 8,
+                    fontSize: 13,
+                    color: '#6b7280',
+                  }}
+                >
+                  Punkty nadane przez pożyczkodawców:{' '}
+                  <strong style={{ color: '#6b7280', fontWeight: 600 }}>
+                    {settlementModel.totalLenderGrantedPoints ?? 0} pkt
+                  </strong>{' '}
+                  (poza modelem prowizyjnym)
+                </li>
               </ul>
             </div>
           </div>

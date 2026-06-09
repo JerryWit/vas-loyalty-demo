@@ -79,6 +79,13 @@ const WEBHOOK_BENEFITS = [
 
 const PROLONG_CATALOG_IDS = new Set(['r1', 'r2', 'r3'])
 
+const GRANT_REASONS = [
+  { id: 'powitalne', label: 'Punkty powitalne' },
+  { id: 'terminowa_splata', label: 'Terminowa spłata' },
+  { id: 'wysoka_kwota', label: 'Wysoka kwota pożyczki' },
+  { id: 'kolejna_pozyczka', label: 'Kolejna pożyczka' },
+]
+
 function formatTxDate(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -137,6 +144,7 @@ function HorizontalBarChart({ data, colors }) {
 
 export default function LenderDashboard({
   lenderName = 'EkspresPożyczka',
+  lenderId = 'ekspres',
   purchases = [],
   lenderRedemptions = [],
   pointsByClient = {},
@@ -144,11 +152,16 @@ export default function LenderDashboard({
   clientLogins = {},
   repaymentExtraDays = {},
   baseClients = [],
+  onGrantLenderPoints,
 }) {
   const [webhookClientId, setWebhookClientId] = useState('SP-1001')
   const [webhookBenefitId, setWebhookBenefitId] = useState('prolongata_30')
   const [webhookVisible, setWebhookVisible] = useState(false)
   const [copyDone, setCopyDone] = useState(false)
+  const [grantClientId, setGrantClientId] = useState(baseClients[0]?.id ?? '')
+  const [grantReason, setGrantReason] = useState('powitalne')
+  const [grantPoints, setGrantPoints] = useState(100)
+  const [grantSuccessMessage, setGrantSuccessMessage] = useState('')
 
   const clientById = useMemo(
     () => Object.fromEntries(baseClients.map((c) => [c.id, c])),
@@ -292,6 +305,17 @@ export default function LenderDashboard({
     }
   }
 
+  const handleGrantPoints = () => {
+    if (!onGrantLenderPoints || !grantClientId) return
+    const ok = onGrantLenderPoints(grantClientId, grantPoints, grantReason, lenderId)
+    if (ok) {
+      setGrantSuccessMessage(
+        'Punkty zostały nadane — klient widzi je teraz w swoim portalu.',
+      )
+      setTimeout(() => setGrantSuccessMessage(''), 4000)
+    }
+  }
+
   return (
     <div className="ld-dashboard">
       <section className="ld-card" aria-labelledby="ld-stats-heading">
@@ -431,6 +455,80 @@ export default function LenderDashboard({
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="ld-card" aria-labelledby="ld-grant-heading">
+        <SectionHead title="Nadaj punkty klientowi" badge="DEMO" />
+        <p className="ld-webhook-desc">
+          Symulacja zdarzenia które Twój system wyśle do LoyalVAS gdy klient zasłuży na punkty (np.
+          terminowa spłata, kolejna pożyczka).
+        </p>
+        <div className="ld-webhook-fields">
+          <label className="vas-field">
+            <span className="vas-field-label">Wybierz klienta</span>
+            <select
+              className="vas-input"
+              value={grantClientId}
+              onChange={(e) => {
+                setGrantClientId(e.target.value)
+                setGrantSuccessMessage('')
+              }}
+            >
+              {baseClients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name} ({client.loanNumber})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="vas-field">
+            <span className="vas-field-label">Powód</span>
+            <select
+              className="vas-input"
+              value={grantReason}
+              onChange={(e) => {
+                setGrantReason(e.target.value)
+                setGrantSuccessMessage('')
+              }}
+            >
+              {GRANT_REASONS.map((reason) => (
+                <option key={reason.id} value={reason.id}>
+                  {reason.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="vas-field">
+            <span className="vas-field-label">Liczba punktów</span>
+            <input
+              className="vas-input"
+              type="number"
+              min={1}
+              value={grantPoints}
+              onChange={(e) => {
+                setGrantPoints(Math.max(1, Number(e.target.value) || 0))
+                setGrantSuccessMessage('')
+              }}
+            />
+          </label>
+        </div>
+        <button type="button" className="vas-btn vas-btn-secondary" onClick={handleGrantPoints}>
+          Nadaj punkty
+        </button>
+        {grantSuccessMessage ? (
+          <p
+            className="vas-mt-md"
+            style={{
+              background: '#16a34a',
+              color: '#ffffff',
+              borderRadius: 8,
+              padding: '10px 12px',
+            }}
+            role="status"
+          >
+            {grantSuccessMessage}
+          </p>
+        ) : null}
       </section>
 
       <section className="ld-card" aria-labelledby="ld-webhook-heading">

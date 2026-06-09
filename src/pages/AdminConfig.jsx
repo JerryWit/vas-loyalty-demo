@@ -10,6 +10,18 @@ import './AdminConfig.css'
 const LENDERS = LENDER_ADMIN_TABS.map((t) => t.label)
 const LENDER_PRICES_CONFIG_KEY = 'lenderPricesConfig'
 const LENDER_POINTS_CONFIG_KEY = 'lenderPointsConfig'
+const LENDER_POINTS_EXPIRY_KEY = 'lenderPointsExpiry'
+const DEFAULT_LENDER_POINTS_EXPIRY = {
+  ekspres: 365,
+  kredytok: 730,
+  szybkagotowka: 365,
+  pozyczkaplus: null,
+}
+const LENDER_POINTS_EXPIRY_OPTIONS = [
+  { value: 'never', label: 'Nigdy nie wygasają', days: null },
+  { value: '365', label: 'Po 365 dniach', days: 365 },
+  { value: '730', label: 'Po 730 dniach (2 lata)', days: 730 },
+]
 const DEFAULT_LENDER_POINTS_CONFIG = {
   ekspres: { p1: 60, p2: 120, p3: 200, p4: 45, p5: 60, p6: 40 },
   kredytok: { p1: 65, p2: 130, p3: 210, p4: 50, p5: 65, p6: 45 },
@@ -35,6 +47,17 @@ function loadLenderPointsConfig() {
     return merged
   } catch {
     return { ...DEFAULT_LENDER_POINTS_CONFIG }
+  }
+}
+
+function loadLenderPointsExpiryConfig() {
+  try {
+    const raw = localStorage.getItem(LENDER_POINTS_EXPIRY_KEY)
+    if (!raw) return { ...DEFAULT_LENDER_POINTS_EXPIRY }
+    const parsed = JSON.parse(raw)
+    return { ...DEFAULT_LENDER_POINTS_EXPIRY, ...parsed }
+  } catch {
+    return { ...DEFAULT_LENDER_POINTS_EXPIRY }
   }
 }
 
@@ -158,6 +181,9 @@ export default function AdminConfig() {
   const [lenderPricesConfig, setLenderPricesConfig] = useState(() =>
     loadLenderPricesConfig(),
   )
+  const [lenderPointsExpiryConfig, setLenderPointsExpiryConfig] = useState(() =>
+    loadLenderPointsExpiryConfig(),
+  )
   const [saveMessage, setSaveMessage] = useState('')
 
   const current = configs[selectedLender]
@@ -232,6 +258,14 @@ export default function AdminConfig() {
     setSaveMessage('')
   }
 
+  const updateLenderPointsExpiry = (days) => {
+    setLenderPointsExpiryConfig((prev) => ({
+      ...prev,
+      [selectedLenderKey]: days,
+    }))
+    setSaveMessage('')
+  }
+
   const updateLenderProductPrice = (productId, price) => {
     setLenderPricesConfig((prev) => ({
       ...prev,
@@ -246,8 +280,17 @@ export default function AdminConfig() {
   const handleSave = () => {
     saveLenderPointsConfig(lenderPointsConfig)
     localStorage.setItem(LENDER_PRICES_CONFIG_KEY, JSON.stringify(lenderPricesConfig))
+    localStorage.setItem(
+      LENDER_POINTS_EXPIRY_KEY,
+      JSON.stringify(lenderPointsExpiryConfig),
+    )
     setSaveMessage('Konfiguracja zapisana')
   }
+
+  const selectedExpiryValue =
+    lenderPointsExpiryConfig[selectedLenderKey] === null
+      ? 'never'
+      : String(lenderPointsExpiryConfig[selectedLenderKey] ?? 365)
 
   if (!isLoggedIn) {
     return (
@@ -492,6 +535,25 @@ export default function AdminConfig() {
                 ))}
               </tbody>
             </table>
+            <h3 className="admin-config-subtitle">Wygasanie punktów nadanych przez pożyczkodawcę</h3>
+            <label className="admin-config-field">
+              <span>Okres ważności punktów lender</span>
+              <select
+                value={selectedExpiryValue}
+                onChange={(e) => {
+                  const option = LENDER_POINTS_EXPIRY_OPTIONS.find(
+                    (item) => item.value === e.target.value,
+                  )
+                  updateLenderPointsExpiry(option?.days ?? null)
+                }}
+              >
+                {LENDER_POINTS_EXPIRY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </section>
 
           <section className="admin-config-section" aria-labelledby="admin-benefits-heading">
