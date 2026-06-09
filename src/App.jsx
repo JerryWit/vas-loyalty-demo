@@ -8,6 +8,11 @@ import {
   sumPurchaseLenderPoints,
   VAS_PRODUCTS_DISPLAY,
 } from './data/vasCatalog.js'
+import {
+  INITIAL_POINTS_HISTORY,
+  buildClientPointsHistoryRows,
+  computePointsByClient,
+} from './data/pointsStats.js'
 import './App.css'
 
 const STORAGE_KEY = 'vas-eksprespozyczka-demo-v1'
@@ -280,11 +285,6 @@ function loadPersisted() {
 
 function buildInitialState() {
   const persisted = loadPersisted()
-  const pointsByClient = {}
-  BASE_CLIENTS.forEach((c) => {
-    pointsByClient[c.id] =
-      persisted?.pointsByClient?.[c.id] ?? c.basePoints
-  })
   const rawLogins = persisted?.clientLogins
   const rawObj =
     rawLogins && typeof rawLogins === 'object' && !Array.isArray(rawLogins)
@@ -319,9 +319,29 @@ function buildInitialState() {
       : {}
 
   const purchases = Array.isArray(persisted?.purchases) ? persisted.purchases : []
-  let pointsHistory = Array.isArray(persisted?.pointsHistory) ? persisted.pointsHistory : []
-  if (pointsHistory.length === 0 && purchases.length > 0) {
-    pointsHistory = buildPointsHistoryFromPurchases(purchases)
+  let pointsHistory
+  if (Array.isArray(persisted?.pointsHistory) && persisted.pointsHistory.length > 0) {
+    const hasWelcome = persisted.pointsHistory.some((entry) => entry.id === 'welcome-jan-001')
+    pointsHistory = hasWelcome
+      ? persisted.pointsHistory
+      : [...INITIAL_POINTS_HISTORY, ...persisted.pointsHistory]
+  } else if (purchases.length > 0) {
+    pointsHistory = [
+      ...INITIAL_POINTS_HISTORY,
+      ...buildPointsHistoryFromPurchases(purchases),
+    ]
+  } else {
+    pointsHistory = [...INITIAL_POINTS_HISTORY]
+  }
+
+  let pointsByClient
+  if (persisted?.pointsByClient && typeof persisted.pointsByClient === 'object') {
+    pointsByClient = {}
+    BASE_CLIENTS.forEach((c) => {
+      pointsByClient[c.id] = persisted.pointsByClient[c.id] ?? c.basePoints
+    })
+  } else {
+    pointsByClient = computePointsByClient(pointsHistory, lenderRedemptions, BASE_CLIENTS)
   }
 
   return {
@@ -583,55 +603,18 @@ export default function App() {
 
   const clientPointsHistory = useMemo(() => {
     if (!clientSessionId) return []
-    const now = new Date()
-    const rows = []
-
-    pointsHistory
-      .filter((entry) => entry.clientId === clientSessionId)
-      .forEach((entry) => {
-        if (entry.source === 'vas_purchase') {
-          rows.push({
-            id: entry.id,
-            at: entry.at,
-            kind: 'vas_purchase',
-            eventLabel: `Zakup VAS — ${entry.reason}`,
-            points: entry.points ?? 0,
-          })
-        } else if (entry.source === 'lender') {
-          rows.push({
-            id: entry.id,
-            at: entry.at,
-            kind: 'lender',
-            eventLabel: `Od ${LENDER.name} — ${GRANT_REASON_LABELS[entry.reason] ?? entry.reason}`,
-            points: entry.points ?? 0,
-          })
-        }
-        if (entry.expiresAt && new Date(entry.expiresAt) < now) {
-          rows.push({
-            id: `${entry.id}-expiry`,
-            at: entry.expiresAt,
-            kind: 'expiry',
-            eventLabel: 'Wygaśnięcie punktów',
-            points: -(entry.points ?? 0),
-          })
-        }
-      })
-
-    lenderRedemptions
-      .filter((redemption) => redemption.clientId === clientSessionId)
-      .forEach((redemption) => {
-        const cost = redemption.pointsCost ?? redemption.points ?? 0
-        rows.push({
-          id: redemption.id,
-          at: redemption.at,
-          kind: 'redeem',
-          eventLabel: `Wymiana na ${redemption.optionLabel ?? 'korzyść'}`,
-          points: -cost,
-        })
-      })
-
-    return rows.sort((a, b) => new Date(b.at) - new Date(a.at))
+    return buildClientPointsHistoryRows(clientSessionId, {
+      pointsHistory,
+      lenderRedemptions,
+    })
   }, [clientSessionId, pointsHistory, lenderRedemptions])
+
+  const clientLastRedemption = useMemo(() => {
+    if (!clientSessionId) return null
+    return lenderRedemptions
+      .filter((redemption) => redemption.clientId === clientSessionId)
+      .sort((a, b) => new Date(b.at) - new Date(a.at))[0] ?? null
+  }, [clientSessionId, lenderRedemptions])
 
   const lenderPortalClient = useMemo(() => {
     if (!lenderPortalClientId) return null
@@ -716,13 +699,6 @@ export default function App() {
     })
     return Object.values(map).sort((a, b) => b.lastAt.localeCompare(a.lastAt))
   }, [clientPurchases])
-
-  const clientRedemptionHistory = useMemo(() => {
-    if (!clientSessionId) return []
-    return lenderRedemptions
-      .filter((r) => r.clientId === clientSessionId)
-      .sort((a, b) => new Date(b.at) - new Date(a.at))
-  }, [lenderRedemptions, clientSessionId])
 
   const totalVasRevenue = useMemo(
     () => purchases.reduce((s, p) => s + p.pricePln, 0),
@@ -883,16 +859,17 @@ export default function App() {
       id: uid(),
       clientId,
       lenderId,
+      lenderName: LENDER.name,
       points: grantedPoints,
       source: 'lender',
-      reason,
+      reason: GRANT_REASON_LABELS[reason] ?? reason,
       at: grantedAt,
       expiresAt: computePointsExpiresAt('lender', lenderId, grantedAt),
     }
     setPointsHistory((prev) => [entry, ...prev])
     setPointsByClient((prev) => ({
       ...prev,
-      [clientId]: (prev[clientId] ?? client.basePoints) + grantedPoints,
+      [clientId]: (prev[clientId] ?? 0) + grantedPoints,
     }))
     return true
   }
@@ -1136,9 +1113,10 @@ export default function App() {
   }
 
   const resetDemo = () => {
-    setPointsByClient({})
+    const resetPointsHistory = [...INITIAL_POINTS_HISTORY]
+    setPointsHistory(resetPointsHistory)
+    setPointsByClient(computePointsByClient(resetPointsHistory, [], BASE_CLIENTS))
     setPurchases([])
-    setPointsHistory([])
     setLenderRedemptions([])
     setRepaymentExtraDays({})
     setLenderPointsTotal(0)
@@ -1888,7 +1866,7 @@ export default function App() {
               </section>
             </div>
 
-            <div className="vas-client-grid-2 vas-mt-lg">
+            <div className="vas-mt-lg">
               <section
                 className="vas-card vas-card-elevated"
                 aria-labelledby="points-calculator-title"
@@ -1948,6 +1926,13 @@ export default function App() {
                   punktach. W portalu pożyczkodawcy dostępne są przedłużenia o 14 i 30 dni (bez
                   względu na termin spłaty).
                 </p>
+                {clientLastRedemption ? (
+                  <p className="vas-muted vas-text-sm vas-mt-sm">
+                    Ostatnia wymiana: {formatDate(clientLastRedemption.at)} —{' '}
+                    {clientLastRedemption.optionLabel ?? 'Wymiana punktów'} (
+                    {clientLastRedemption.pointsCost ?? clientLastRedemption.points ?? 0} pkt)
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   className="vas-btn vas-btn-primary vas-btn-block vas-mt-md"
@@ -1955,47 +1940,6 @@ export default function App() {
                 >
                   Przejdź do portalu pożyczkodawcy
                 </button>
-              </section>
-
-              <section
-                className="vas-card vas-card-elevated"
-                aria-labelledby="redemption-history-title"
-              >
-                <div className="vas-card-head">
-                  <h2 id="redemption-history-title" className="vas-h2">
-                    Historia wykorzystanych punktów
-                  </h2>
-                  <span className="vas-badge">Potwierdzenia API</span>
-                </div>
-                {clientRedemptionHistory.length === 0 ? (
-                  <p className="vas-muted">
-                    Brak potwierdzonych wykorzystań. Punkty są odejmiane wyłącznie po
-                    potwierdzeniu przez pożyczkodawcę w jego portalu.
-                  </p>
-                ) : (
-                  <div className="vas-table-wrap vas-table-wrap-tight">
-                    <table className="vas-table vas-table-compact">
-                      <thead>
-                        <tr>
-                          <th>Data</th>
-                          <th>Punkty</th>
-                          <th>Pożyczkodawca</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {clientRedemptionHistory.map((row) => (
-                          <tr key={row.id}>
-                            <td>{formatDate(row.at)}</td>
-                            <td>
-                              <span className="vas-tag-neg">−{row.points}</span>
-                            </td>
-                            <td>{row.lenderName}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </section>
             </div>
 
@@ -2007,20 +1951,24 @@ export default function App() {
                   </h2>
                   <span className="vas-badge vas-badge-green">Tylko Twoje</span>
                 </div>
-                {clientPointsHistory.length === 0 ? (
-                  <p className="vas-muted">Brak transakcji punktowych.</p>
-                ) : (
-                  <div className="vas-table-wrap vas-table-wrap-tight">
-                    <table className="vas-table vas-table-compact">
-                      <thead>
+                <div className="vas-table-wrap vas-table-wrap-tight">
+                  <table className="vas-table vas-table-compact">
+                    <thead>
+                      <tr>
+                        <th>Data</th>
+                        <th>Zdarzenie</th>
+                        <th>Punkty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientPointsHistory.length === 0 ? (
                         <tr>
-                          <th>Data</th>
-                          <th>Zdarzenie</th>
-                          <th>Punkty</th>
+                          <td colSpan={3} className="vas-muted">
+                            Brak transakcji punktowych.
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {clientPointsHistory.map((row) => (
+                      ) : (
+                        clientPointsHistory.map((row) => (
                           <tr key={row.id}>
                             <td>{formatDate(row.at)}</td>
                             <td>
@@ -2035,16 +1983,16 @@ export default function App() {
                                     marginRight: 8,
                                   }}
                                 >
-                                  Od {LENDER.name}
+                                  {row.badgeLabel}
                                 </span>
                               ) : row.kind === 'vas_purchase' ? (
                                 <span
                                   className="vas-badge vas-badge-green"
                                   style={{ fontSize: 11, marginRight: 8 }}
                                 >
-                                  Zakup VAS
+                                  {row.badgeLabel}
                                 </span>
-                              ) : row.kind === 'redeem' ? (
+                              ) : (
                                 <span
                                   className="vas-badge"
                                   style={{
@@ -2055,20 +2003,7 @@ export default function App() {
                                     marginRight: 8,
                                   }}
                                 >
-                                  Wymiana punktów
-                                </span>
-                              ) : (
-                                <span
-                                  className="vas-badge"
-                                  style={{
-                                    fontSize: 11,
-                                    background: '#f3f4f6',
-                                    color: '#6b7280',
-                                    borderColor: '#e5e7eb',
-                                    marginRight: 8,
-                                  }}
-                                >
-                                  Wygaśnięcie
+                                  {row.badgeLabel}
                                 </span>
                               )}
                               {row.eventLabel}
@@ -2081,20 +2016,20 @@ export default function App() {
                               )}
                             </td>
                           </tr>
-                        ))}
-                        <tr>
-                          <td />
-                          <td>
-                            <strong>Saldo</strong>
-                          </td>
-                          <td>
-                            <strong>{pointsSession} pkt</strong>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        ))
+                      )}
+                      <tr>
+                        <td />
+                        <td>
+                          <strong>Saldo</strong>
+                        </td>
+                        <td>
+                          <strong>{pointsSession} pkt</strong>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </section>
             </div>
           </main>
@@ -2166,6 +2101,7 @@ export default function App() {
               <AdminPlatform
                 formatMoney={formatMoney}
                 purchases={purchases}
+                pointsHistory={pointsHistory}
                 lenderRedemptions={lenderRedemptions}
                 pointsByClient={pointsByClient}
                 lenderPointsTotal={lenderPointsTotal}

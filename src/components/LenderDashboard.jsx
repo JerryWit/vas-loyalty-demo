@@ -1,4 +1,9 @@
 import { useMemo, useState } from 'react'
+import {
+  getClientStats,
+  getRedemptionPointsCost,
+  sumPointsHistoryBySource,
+} from '../data/pointsStats.js'
 import './LenderDashboard.css'
 
 const STATS_ROW_1_TEMPLATE = [
@@ -104,10 +109,6 @@ function getDaysToRepayment(client, repaymentExtraDays) {
   return client.repaymentDaysFromToday + extra
 }
 
-function getRedemptionPointsCost(redemption) {
-  return redemption.pointsCost ?? redemption.points ?? 0
-}
-
 function SectionHead({ title, badge }) {
   return (
     <div className="ld-section-head">
@@ -169,38 +170,28 @@ export default function LenderDashboard({
     [baseClients],
   )
 
+  const statsContext = useMemo(
+    () => ({ pointsHistory, lenderRedemptions, pointsByClient, purchases }),
+    [pointsHistory, lenderRedemptions, pointsByClient, purchases],
+  )
+
   const activeClients = useMemo(() => {
     return baseClients
       .filter((c) => (clientLogins[c.id]?.count ?? 0) > 0)
       .map((c) => {
         const clientPurchases = purchases.filter((p) => p.clientId === c.id)
-        const clientRedemptions = lenderRedemptions.filter((r) => r.clientId === c.id)
-        const clientPointsHistory = pointsHistory.filter((entry) => entry.clientId === c.id)
-        const pointsFromVas = clientPointsHistory
-          .filter((entry) => entry.source === 'vas_purchase')
-          .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
-        const pointsGrantedByLender = clientPointsHistory
-          .filter((entry) => entry.source === 'lender' && entry.lenderId === lenderId)
-          .reduce((sum, entry) => sum + (entry.points ?? 0), 0)
-        const pointsUsed = clientRedemptions.reduce(
-          (s, r) => s + getRedemptionPointsCost(r),
-          0,
-        )
-        const commissionPts = clientPurchases.reduce(
-          (s, p) => s + (p.lenderPoints ?? 0),
-          0,
-        )
+        const stats = getClientStats(c.id, lenderId, statsContext)
         return {
           name: c.name,
           loanNumber: c.loanNumber,
           firstLoginAt: formatTxDate(clientLogins[c.id]?.lastAt),
           daysToRepayment: getDaysToRepayment(c, repaymentExtraDays),
           vasCount: clientPurchases.length,
-          pointsFromVas,
-          pointsGrantedByLender,
-          pointsUsed,
-          pointsAvailable: pointsByClient[c.id] ?? 0,
-          commissionPts,
+          pointsFromVas: stats.pointsFromVas,
+          pointsGrantedByLender: stats.pointsFromLender,
+          pointsUsed: stats.pointsUsed,
+          pointsAvailable: stats.pointsAvailable,
+          commissionPts: stats.lenderCommissionPoints,
         }
       })
   }, [
@@ -210,7 +201,7 @@ export default function LenderDashboard({
     pointsHistory,
     lenderId,
     lenderRedemptions,
-    pointsByClient,
+    statsContext,
     repaymentExtraDays,
   ])
 
@@ -241,20 +232,17 @@ export default function LenderDashboard({
   }, [activeClients.length, purchases])
 
   const statsRow2 = useMemo(() => {
-    const granted = purchases.reduce((s, p) => s + (p.pointsEarned ?? 0), 0)
+    const granted = sumPointsHistoryBySource(pointsHistory, 'vas_purchase')
     const used = lenderRedemptions.reduce((s, r) => s + getRedemptionPointsCost(r), 0)
     return [
       { ...STATS_ROW_2_TEMPLATE[0], value: `${granted} pkt` },
       { ...STATS_ROW_2_TEMPLATE[1], value: `${used} pkt` },
       { ...STATS_ROW_2_TEMPLATE[2], value: `${lenderPointsTotal} pkt` },
     ]
-  }, [purchases, lenderRedemptions, lenderPointsTotal])
+  }, [pointsHistory, lenderRedemptions, lenderPointsTotal])
 
   const lenderGrantedPointsTotal = useMemo(
-    () =>
-      pointsHistory
-        .filter((entry) => entry.source === 'lender' && entry.lenderId === lenderId)
-        .reduce((sum, entry) => sum + (entry.points ?? 0), 0),
+    () => sumPointsHistoryBySource(pointsHistory, 'lender', lenderId),
     [pointsHistory, lenderId],
   )
 

@@ -1,5 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { VAS_PRODUCTS } from '../data/vasCatalog.js'
+import {
+  getRedemptionPointsCost,
+  groupLenderGrantedPoints,
+  sumPointsHistoryBySource,
+} from '../data/pointsStats.js'
 import './AdminPlatform.css'
 
 const PERIOD_OPTIONS = [
@@ -27,10 +32,6 @@ function formatTxDate(iso) {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-function getRedemptionPointsCost(redemption) {
-  return redemption.pointsCost ?? redemption.points ?? 0
 }
 
 function getNextMonthFirstDayLabel() {
@@ -100,13 +101,14 @@ function buildInsuranceByTu(purchases, productMetaByName) {
     .sort((a, b) => a.tuName.localeCompare(b.tuName))
 }
 
-function buildLiveKpis(purchases, lenderRedemptions, lenderPointsTotal) {
+function buildLiveKpis(purchases, pointsHistory, lenderRedemptions, lenderPointsTotal) {
   const uniqueClientIds = new Set(purchases.map((p) => p.clientId).filter(Boolean))
   const loggedIn = uniqueClientIds.size
   const withPurchase = loggedIn
   const conversion =
     loggedIn > 0 ? `${Math.round((withPurchase / loggedIn) * 100)}%` : '0%'
-  const pointsGranted = purchases.reduce((s, p) => s + (p.pointsEarned ?? 0), 0)
+  const pointsGranted = sumPointsHistoryBySource(pointsHistory, 'vas_purchase')
+  const pointsGrantedByLenders = sumPointsHistoryBySource(pointsHistory, 'lender')
   const pointsUsed = lenderRedemptions.reduce(
     (s, r) => s + getRedemptionPointsCost(r),
     0,
@@ -117,6 +119,7 @@ function buildLiveKpis(purchases, lenderRedemptions, lenderPointsTotal) {
     withPurchase: String(withPurchase),
     conversion,
     pointsGranted: `${pointsGranted} pkt`,
+    pointsGrantedByLenders: `${pointsGrantedByLenders} pkt`,
     pointsUsed: `${pointsUsed} pkt`,
     lenderPoints: `${lenderPointsTotal} pkt`,
   }
@@ -142,6 +145,7 @@ export default function AdminPlatform({
   settlementModel,
   formatMoney,
   purchases = [],
+  pointsHistory = [],
   lenderRedemptions = [],
   pointsByClient = {},
   lenderPointsTotal = 0,
@@ -152,8 +156,13 @@ export default function AdminPlatform({
   const operationsRef = useRef(null)
 
   const liveKpis = useMemo(
-    () => buildLiveKpis(purchases, lenderRedemptions, lenderPointsTotal),
-    [purchases, lenderRedemptions, lenderPointsTotal],
+    () => buildLiveKpis(purchases, pointsHistory, lenderRedemptions, lenderPointsTotal),
+    [purchases, pointsHistory, lenderRedemptions, lenderPointsTotal],
+  )
+
+  const lenderGrantedGroups = useMemo(
+    () => groupLenderGrantedPoints(pointsHistory),
+    [pointsHistory],
   )
 
   const clientById = useMemo(
@@ -383,9 +392,15 @@ export default function AdminPlatform({
     },
     {
       id: 'granted',
-      label: 'Punkty przyznane',
+      label: 'Punkty przyznane klientom',
       value: liveKpis.pointsGranted,
-      foot: 'Naliczone klientom',
+      foot: 'Suma z zakupów VAS (pointsHistory)',
+    },
+    {
+      id: 'lender-granted',
+      label: 'Punkty nadane przez lenderów',
+      value: liveKpis.pointsGrantedByLenders,
+      foot: 'Suma nadanych przez pożyczkodawców',
     },
     {
       id: 'used',
@@ -921,6 +936,43 @@ export default function AdminPlatform({
           </div>
         </div>
       ) : null}
+
+      <SectionCard
+        title="Punkty nadane przez pożyczkodawców"
+        badge="LENDER GRANTS"
+        id="ap-lender-grants"
+      >
+        {lenderGrantedGroups.length === 0 ? (
+          <p className="ap-muted-cell">Brak nadań punktów przez pożyczkodawców.</p>
+        ) : (
+          <div className="ap-table-wrap ap-mt-md">
+            <table className="ap-table">
+              <thead>
+                <tr>
+                  <th>Pożyczkodawca</th>
+                  <th>Liczba zdarzeń</th>
+                  <th>Suma punktów</th>
+                  <th>Powody</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lenderGrantedGroups.map((group) => (
+                  <tr key={group.lenderId}>
+                    <td>{group.lenderName}</td>
+                    <td>{group.events}</td>
+                    <td>{group.totalPoints} pkt</td>
+                    <td>
+                      {group.reasons
+                        .map((item) => `${item.reason} (${item.count})`)
+                        .join(', ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
 
       <SectionCard title="Zestawienie do faktur — prowizje pożyczkodawców" badge="FAKTURY">
         <p className="vas-muted vas-text-sm">
