@@ -26,10 +26,10 @@ const TELEMEDICINE_DETAILS = {
 
 const IPID_CONTENT = {
   p4: {
-    covered: 'utrata pracy',
+    covered: 'śmierć w wyniku nieszczęśliwego wypadku',
     sum: 'równa kwocie pożyczki',
     period: 'czas trwania pożyczki',
-    exclusions: 'wypowiedzenie z winy pracownika, działalność gospodarcza',
+    exclusions: 'zdarzenie pod wpływem alkoholu, sporty ekstremalne',
   },
   p5: {
     covered: 'życie i następstwa wypadków',
@@ -195,6 +195,14 @@ export default function VasPurchaseModal({
 
   const showFooter = phase === 'form' && !(isTelemedicine && step === 2)
   const hideApkPrimaryButton = !isTelemedicine && step === 2 && insuranceStep2Blocked
+  const step1AllCheckboxesChecked = isTelemedicine
+    ? teleContractChecked
+    : ipidChecked && ipidOwuChecked
+  const primaryDisabled =
+    phase !== 'form' ||
+    (step === 1 && !step1AllCheckboxesChecked) ||
+    (step === 2 && !isTelemedicine && !insuranceStep2Valid) ||
+    (step === 3 && !isTelemedicine && !insuranceStep3Valid)
 
   return (
     <div
@@ -411,12 +419,14 @@ export default function VasPurchaseModal({
                       <dd>{ipid.exclusions}</dd>
                     </div>
                   </dl>
-                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
-                    Pobierz kartę produktu IPID
-                  </a>
-                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
-                    Pobierz OWU
-                  </a>
+                  <div className="vas-purchase-doc-links">
+                    <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
+                      Pobierz kartę produktu IPID →
+                    </a>
+                    <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
+                      Pobierz OWU →
+                    </a>
+                  </div>
                   <label className="vas-purchase-checkbox vas-mt-md">
                     <input
                       type="checkbox"
@@ -575,7 +585,7 @@ export default function VasPurchaseModal({
                   <button
                     type="button"
                     className="vas-btn vas-btn-secondary"
-                    disabled={!canProceed()}
+                    disabled={primaryDisabled}
                     onClick={handlePrimary}
                   >
                     {getPrimaryLabel()}

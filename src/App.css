@@ -2770,6 +2770,7 @@
 .vas-purchase-footer .vas-btn-secondary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .vas-purchase-success {
@@ -2817,9 +2818,15 @@
   margin-top: 6px;
 }
 
-.vas-purchase-link {
-  display: inline-block;
+.vas-purchase-doc-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 4px;
+}
+
+.vas-purchase-link {
+  display: block;
   font-size: 13px;
   color: #2563eb;
   text-decoration: underline;

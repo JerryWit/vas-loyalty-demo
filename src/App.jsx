@@ -1865,7 +1865,7 @@ export default function App() {
                           className="vas-btn vas-btn-secondary vas-btn-block"
                           onClick={() => setVasPurchaseProduct(p)}
                         >
-                          Kup VAS
+                          Kup
                         </button>
                       </article>
                     )
