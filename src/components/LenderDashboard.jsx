@@ -77,7 +77,7 @@ const WEBHOOK_BENEFITS = [
     id: 'partial_payment',
     label: 'Częściowa spłata',
     benefit_type: 'partial_payment',
-    points_used: 95,
+    points_used: 500,
     requested_value: 500,
   },
 ]

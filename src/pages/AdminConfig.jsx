@@ -88,7 +88,7 @@ function buildBenefits(overrides) {
     prolong7: { active: true, points: 70 },
     prolong14: { active: true, points: 120 },
     prolong30: { active: true, points: 180 },
-    partialPayment: { active: true, points: 95 },
+    partialPayment: { active: true, points: 500 },
     expressLoan: { active: false, points: 200 },
   }
   return { ...base, ...overrides }
@@ -108,7 +108,7 @@ const DEFAULT_LENDER_CONFIGS = {
       prolong7: { active: true, points: 70 },
       prolong14: { active: true, points: 120 },
       prolong30: { active: true, points: 180 },
-      partialPayment: { active: true, points: 95 },
+      partialPayment: { active: true, points: 500 },
       expressLoan: { active: false, points: 200 },
     }),
   },

@@ -124,7 +124,7 @@ const LENDER_POINTS_CATALOG = [
   {
     id: 'r5',
     label: 'Spłata częściowa 500 zł',
-    pointsCost: 95,
+    pointsCost: 500,
   },
 ]
 
