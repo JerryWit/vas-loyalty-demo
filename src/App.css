@@ -125,6 +125,10 @@
   box-shadow: 0 8px 22px rgba(15, 39, 68, 0.22);
 }
 
+.vas-nav-link {
+  text-decoration: none;
+}
+
 .vas-nav-ico {
   font-size: 15px;
   line-height: 1;

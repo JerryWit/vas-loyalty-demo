@@ -1,0 +1,291 @@
+.lender-demo {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1e2d3d;
+  background: #f4f6f9;
+}
+
+.lender-demo-header {
+  background: #1e2d3d;
+  color: #fff;
+  padding: 0 24px;
+}
+
+.lender-demo-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 0 0;
+}
+
+.lender-demo-logo {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.lender-demo-header-sub {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.lender-demo-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.lender-demo-nav-item {
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: default;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}
+
+.lender-demo-nav-item.is-active {
+  color: #fff;
+  border-bottom-color: #4ade80;
+}
+
+.lender-demo-main {
+  flex: 1;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+}
+
+.lender-demo-welcome {
+  background: #fff;
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(30, 45, 61, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.lender-demo-welcome h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.lender-demo-loan-meta {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #5c6b82;
+  line-height: 1.5;
+}
+
+.lender-demo-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5c6b82;
+  margin-bottom: 8px;
+}
+
+.lender-demo-progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.lender-demo-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1e2d3d, #3d5a73);
+}
+
+.lender-demo-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.lender-demo-content {
+  min-width: 0;
+}
+
+.lender-demo-section-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e2d3d;
+}
+
+.lender-demo-section-lead {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #5c6b82;
+}
+
+.lender-demo-widget-wrap {
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.lender-demo-widget-wrap iframe {
+  display: block;
+  width: 100%;
+  height: 700px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.lender-demo-sidebar {
+  position: sticky;
+  top: 20px;
+}
+
+.lender-demo-points-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 22px 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(30, 45, 61, 0.06);
+}
+
+.lender-demo-points-card h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.lender-demo-balance {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #5c6b82;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.lender-demo-balance-num {
+  margin: 0 0 16px;
+  font-size: 36px;
+  font-weight: 700;
+  color: #1e2d3d;
+}
+
+.lender-demo-last-activity {
+  margin: 0 0 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 13px;
+  color: #5c6b82;
+  line-height: 1.45;
+}
+
+.lender-demo-last-activity strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.lender-demo-sidebar-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #1e2d3d;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lender-demo-sidebar-btn:hover {
+  background: #2a4054;
+}
+
+.lender-demo-footer {
+  background: #1e2d3d;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 18px 24px;
+  margin-top: auto;
+}
+
+.lender-demo-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.lender-demo-footer-logo {
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.lender-demo-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: #1e2d3d;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.lender-demo-back-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 960px) {
+  .lender-demo-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lender-demo-sidebar {
+    position: static;
+  }
+
+  .lender-demo-widget-wrap iframe {
+    height: 560px;
+  }
+}
+
+@media (max-width: 600px) {
+  .lender-demo-main {
+    padding: 20px 16px 32px;
+  }
+
+  .lender-demo-logo {
+    font-size: 26px;
+  }
+
+  .lender-demo-nav-item {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+}
