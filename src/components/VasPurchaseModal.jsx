@@ -51,6 +51,9 @@ const PROTECTION_PERIOD = {
   p6: '12 miesięcy',
 }
 
+const TELEMEDI_ACTIVATION_URL =
+  'https://register-app.telemedi.com/pl?clinic=37c9bbf8-77dc-46ff-80b0-aba87d3457b9&_gl=1*wn3oqn*_gcl_au*NzI1OTExMTU2LjE3NzU2NDgwMjc.*_ga*ODc1NTE0MTcyLjE3NzU2NDgwMjg.*_ga_6D2X5MH8BC*czE3NzgxNTQ1MTQkbzckZzEkdDE3NzgxNTQ1MjMkajUxJGwwJGgw'
+
 function YesNoQuestion({ label, value, onChange }) {
   return (
     <div className="vas-purchase-apk-question">
@@ -90,7 +93,10 @@ export default function VasPurchaseModal({
   const [step, setStep] = useState(1)
   const [phase, setPhase] = useState('form')
   const [teleRegulaminChecked, setTeleRegulaminChecked] = useState(false)
+  const [teleContractChecked, setTeleContractChecked] = useState(false)
   const [ipidChecked, setIpidChecked] = useState(false)
+  const [ipidOwuChecked, setIpidOwuChecked] = useState(false)
+  const [pdfDemoMessage, setPdfDemoMessage] = useState(false)
   const [hasExistingInsurance, setHasExistingInsurance] = useState(null)
   const [meetsNeeds, setMeetsNeeds] = useState(null)
   const [apkConfirmed, setApkConfirmed] = useState(false)
@@ -101,7 +107,10 @@ export default function VasPurchaseModal({
     setStep(1)
     setPhase('form')
     setTeleRegulaminChecked(false)
+    setTeleContractChecked(false)
     setIpidChecked(false)
+    setIpidOwuChecked(false)
+    setPdfDemoMessage(false)
     setHasExistingInsurance(null)
     setMeetsNeeds(null)
     setApkConfirmed(false)
@@ -133,8 +142,8 @@ export default function VasPurchaseModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTelemedicine, step, phase])
 
-  const teleStep1Valid = teleRegulaminChecked
-  const insuranceStep1Valid = ipidChecked
+  const teleStep1Valid = teleRegulaminChecked && teleContractChecked
+  const insuranceStep1Valid = ipidChecked && ipidOwuChecked
   const insuranceStep2Valid =
     hasExistingInsurance !== null &&
     meetsNeeds !== null &&
@@ -222,9 +231,49 @@ export default function VasPurchaseModal({
                 ? `Dodano ${product.name}. Otrzymujesz +${displayPoints} pkt.`
                 : 'Polisa została wystawiona. Potwierdzenie i dokument polisy otrzymasz na email.'}
             </p>
-            <button type="button" className="vas-btn vas-btn-secondary vas-btn-block" onClick={handleClose}>
-              Zamknij
-            </button>
+            <div className="vas-purchase-success-actions">
+              {isTelemedicine ? (
+                <>
+                  <a
+                    href={TELEMEDI_ACTIVATION_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="vas-btn vas-btn-primary vas-btn-block vas-purchase-success-cta"
+                  >
+                    Aktywuj pakiet telemedyczny →
+                  </a>
+                  <p className="vas-purchase-success-hint">
+                    Link aktywacyjny zostanie również wysłany na Twój email.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="vas-btn vas-btn-secondary vas-btn-block vas-purchase-success-cta"
+                    onClick={() => setPdfDemoMessage(true)}
+                  >
+                    Pobierz potwierdzenie ubezpieczenia (PDF)
+                  </button>
+                  {pdfDemoMessage ? (
+                    <p className="vas-purchase-demo-notice" role="status">
+                      Dokument zostanie wygenerowany przez system. W wersji produkcyjnej pobierze się
+                      automatycznie.
+                    </p>
+                  ) : null}
+                  <p className="vas-purchase-success-hint">
+                    Polisa zostanie również wysłana na Twój adres email.
+                  </p>
+                </>
+              )}
+              <button
+                type="button"
+                className="vas-btn vas-btn-ghost vas-btn-block"
+                onClick={handleClose}
+              >
+                Wróć do swojego konta
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -259,7 +308,7 @@ export default function VasPurchaseModal({
                   <div className="vas-purchase-price-box">
                     Cena: {displayPrice} zł | Otrzymasz: +{displayPoints} pkt
                   </div>
-                  <label className="vas-purchase-checkbox">
+                  <label className="vas-purchase-checkbox vas-mb-md">
                     <input
                       type="checkbox"
                       checked={teleRegulaminChecked}
@@ -267,6 +316,36 @@ export default function VasPurchaseModal({
                     />
                     <span>
                       Zapoznałem się z zakresem usługi i regulaminem Telemedi
+                    </span>
+                  </label>
+                  <div className="vas-purchase-legal-text">
+                    <p className="vas-purchase-legal-intro">Dokonując płatności:</p>
+                    <ul>
+                      <li>zawierasz umowę na usługę telemedyczną z RANTHERI SERVICE OÜ</li>
+                      <li>
+                        wyrażasz zgodę na przeprowadzenie badania dobrostanu z wykorzystaniem
+                        algorytmów AI — wynik ma charakter wyłącznie informacyjny i wspomagający
+                        wskazanie specjalizacji lekarza
+                      </li>
+                      <li>
+                        zgadzasz się na rozpoczęcie usługi telemedycznej przed upływem terminu do
+                        odstąpienia i przyjmujesz do wiadomości, że powoduje to utratę prawa do
+                        odstąpienia od umowy
+                      </li>
+                      <li>akceptujesz warunki umowy z RANTHERI SERVICE OÜ</li>
+                    </ul>
+                  </div>
+                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
+                    Pobierz wzór umowy
+                  </a>
+                  <label className="vas-purchase-checkbox vas-mt-md">
+                    <input
+                      type="checkbox"
+                      checked={teleContractChecked}
+                      onChange={(e) => setTeleContractChecked(e.target.checked)}
+                    />
+                    <span>
+                      Potwierdzam, że pobrałem/am i zapoznałem/am się z treścią umowy
                     </span>
                   </label>
                 </>
@@ -342,13 +421,24 @@ export default function VasPurchaseModal({
                       <dd>{ipid.exclusions}</dd>
                     </div>
                   </dl>
-                  <label className="vas-purchase-checkbox">
+                  <label className="vas-purchase-checkbox vas-mb-md">
                     <input
                       type="checkbox"
                       checked={ipidChecked}
                       onChange={(e) => setIpidChecked(e.target.checked)}
                     />
                     <span>Zapoznałem się z kartą produktu IPID</span>
+                  </label>
+                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
+                    Pobierz Ogólne Warunki Ubezpieczenia (OWU)
+                  </a>
+                  <label className="vas-purchase-checkbox vas-mt-md">
+                    <input
+                      type="checkbox"
+                      checked={ipidOwuChecked}
+                      onChange={(e) => setIpidOwuChecked(e.target.checked)}
+                    />
+                    <span>Zapoznałem/am się z Ogólnymi Warunkami Ubezpieczenia (OWU)</span>
                   </label>
                 </>
               )}

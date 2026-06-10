@@ -2796,6 +2796,71 @@
   color: var(--vas-ink);
 }
 
+.vas-purchase-legal-text {
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vas-slate);
+}
+
+.vas-purchase-legal-intro {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.vas-purchase-legal-text ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.vas-purchase-legal-text li + li {
+  margin-top: 6px;
+}
+
+.vas-purchase-link {
+  display: inline-block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.vas-purchase-link:hover {
+  color: #1d4ed8;
+}
+
+.vas-purchase-success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.vas-purchase-success-cta {
+  min-height: 48px;
+  font-weight: 700;
+}
+
+.vas-purchase-success-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--vas-slate);
+  text-align: center;
+}
+
+.vas-purchase-demo-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--vas-radius-sm);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #1e40af;
+  text-align: center;
+}
+
 /* Root override when app is mounted */
 #root {
   width: 100%;
