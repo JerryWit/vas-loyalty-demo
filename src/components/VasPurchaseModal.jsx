@@ -142,9 +142,10 @@ export default function VasPurchaseModal({
 
   const teleStep1Valid = teleContractChecked
   const insuranceStep1Valid = ipidChecked && ipidOwuChecked
+  const insuranceStep2Blocked = meetsNeeds === false
   const insuranceStep2Valid =
     hasExistingInsurance !== null &&
-    meetsNeeds !== null &&
+    meetsNeeds === true &&
     apkConfirmed &&
     (product.id !== 'p6' || propertyAddress.trim().length > 0)
   const insuranceStep3Valid = owuAccepted
@@ -193,6 +194,7 @@ export default function VasPurchaseModal({
   const processingMessage = isTelemedicine ? 'Przetwarzamy płatność...' : 'Wystawiamy polisę...'
 
   const showFooter = phase === 'form' && !(isTelemedicine && step === 2)
+  const hideApkPrimaryButton = !isTelemedicine && step === 2 && insuranceStep2Blocked
 
   return (
     <div
@@ -474,21 +476,42 @@ export default function VasPurchaseModal({
                     value={hasExistingInsurance}
                     onChange={setHasExistingInsurance}
                   />
+                  {hasExistingInsurance === true ? (
+                    <p className="vas-purchase-apk-alert vas-purchase-apk-alert--warning" role="alert">
+                      Posiadasz już ubezpieczenie tego typu. Upewnij się że dodatkowa ochrona jest
+                      zgodna z Twoimi potrzebami.
+                    </p>
+                  ) : null}
                   <YesNoQuestion
                     label="Czy ten produkt odpowiada Twoim aktualnym potrzebom?"
                     value={meetsNeeds}
-                    onChange={setMeetsNeeds}
+                    onChange={(value) => {
+                      setMeetsNeeds(value)
+                      if (value !== true) setApkConfirmed(false)
+                    }}
                   />
-                  <label className="vas-purchase-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={apkConfirmed}
-                      onChange={(e) => setApkConfirmed(e.target.checked)}
-                    />
-                    <span>
-                      Potwierdzam że produkt odpowiada moim potrzebom i sytuacji życiowej
-                    </span>
-                  </label>
+                  {meetsNeeds === false ? (
+                    <p className="vas-purchase-apk-alert vas-purchase-apk-alert--danger" role="alert">
+                      Na podstawie Twoich odpowiedzi ten produkt może nie odpowiadać Twoim aktualnym
+                      potrzebom. Nie możemy zrealizować zakupu. Jeśli masz pytania skontaktuj się z
+                      nami:{' '}
+                      <a href="mailto:bok@insurpoint.pl" className="vas-purchase-apk-alert-link">
+                        bok@insurpoint.pl
+                      </a>
+                    </p>
+                  ) : null}
+                  {meetsNeeds === true ? (
+                    <label className="vas-purchase-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={apkConfirmed}
+                        onChange={(e) => setApkConfirmed(e.target.checked)}
+                      />
+                      <span>
+                        Potwierdzam że produkt odpowiada moim potrzebom i sytuacji życiowej
+                      </span>
+                    </label>
+                  ) : null}
                 </>
               )}
 
@@ -538,7 +561,9 @@ export default function VasPurchaseModal({
             </div>
 
             {showFooter && (
-              <div className="vas-purchase-footer">
+              <div
+                className={`vas-purchase-footer${hideApkPrimaryButton ? ' vas-purchase-footer--back-only' : ''}`}
+              >
                 {step > 1 ? (
                   <button type="button" className="vas-btn vas-btn-ghost" onClick={handleBack}>
                     Wstecz
@@ -546,14 +571,16 @@ export default function VasPurchaseModal({
                 ) : (
                   <span />
                 )}
-                <button
-                  type="button"
-                  className="vas-btn vas-btn-secondary"
-                  disabled={!canProceed()}
-                  onClick={handlePrimary}
-                >
-                  {getPrimaryLabel()}
-                </button>
+                {!hideApkPrimaryButton ? (
+                  <button
+                    type="button"
+                    className="vas-btn vas-btn-secondary"
+                    disabled={!canProceed()}
+                    onClick={handlePrimary}
+                  >
+                    {getPrimaryLabel()}
+                  </button>
+                ) : null}
               </div>
             )}
           </>
