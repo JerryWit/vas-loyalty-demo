@@ -1192,11 +1192,6 @@ export default function App() {
                 <span className="vas-nav-label-short">{item.short}</span>
               </button>
             ))}
-            <Link to="/lender-demo" className="vas-nav-btn vas-nav-link" title="Panel klienta Wandoo z widgetem LoyalVAS">
-              <span className="vas-nav-ico">🏠</span>
-              <span className="vas-nav-label-full">Demo Wandoo</span>
-              <span className="vas-nav-label-short">Wandoo</span>
-            </Link>
           </nav>
         ) : null}
         <div className="vas-topbar-actions">
