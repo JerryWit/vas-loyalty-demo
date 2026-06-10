@@ -3,7 +3,7 @@ export const INITIAL_POINTS_HISTORY = [
     id: 'welcome-jan-001',
     clientId: 'c1',
     lenderId: 'ekspres',
-    lenderName: 'EkspresPożyczka',
+    lenderName: 'Wandoo',
     points: 20,
     source: 'lender',
     reason: 'Punkty powitalne',

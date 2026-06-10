@@ -144,7 +144,7 @@ function HorizontalBarChart({ data, colors }) {
 }
 
 export default function LenderDashboard({
-  lenderName = 'EkspresPożyczka',
+  lenderName = 'Wandoo',
   lenderId = 'ekspres',
   purchases = [],
   pointsHistory = [],
