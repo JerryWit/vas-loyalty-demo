@@ -93,6 +93,8 @@ export default function VasPurchaseModal({
   const [step, setStep] = useState(1)
   const [phase, setPhase] = useState('form')
   const [teleContractChecked, setTeleContractChecked] = useState(false)
+  const [ipidChecked, setIpidChecked] = useState(false)
+  const [ipidOwuChecked, setIpidOwuChecked] = useState(false)
   const [pdfDemoMessage, setPdfDemoMessage] = useState(false)
   const [hasExistingInsurance, setHasExistingInsurance] = useState(null)
   const [meetsNeeds, setMeetsNeeds] = useState(null)
@@ -104,6 +106,8 @@ export default function VasPurchaseModal({
     setStep(1)
     setPhase('form')
     setTeleContractChecked(false)
+    setIpidChecked(false)
+    setIpidOwuChecked(false)
     setPdfDemoMessage(false)
     setHasExistingInsurance(null)
     setMeetsNeeds(null)
@@ -137,7 +141,7 @@ export default function VasPurchaseModal({
   }, [isTelemedicine, step, phase])
 
   const teleStep1Valid = teleContractChecked
-  const insuranceStep1Valid = true
+  const insuranceStep1Valid = ipidChecked && ipidOwuChecked
   const insuranceStep2Valid =
     hasExistingInsurance !== null &&
     meetsNeeds !== null &&
@@ -319,6 +323,9 @@ export default function VasPurchaseModal({
                       <li>akceptujesz warunki umowy z RANTHERI SERVICE OÜ</li>
                     </ul>
                   </div>
+                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
+                    Pobierz wzór umowy
+                  </a>
                   <label className="vas-purchase-checkbox vas-mt-md">
                     <input
                       type="checkbox"
@@ -402,6 +409,28 @@ export default function VasPurchaseModal({
                       <dd>{ipid.exclusions}</dd>
                     </div>
                   </dl>
+                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
+                    Pobierz kartę produktu IPID
+                  </a>
+                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
+                    Pobierz OWU
+                  </a>
+                  <label className="vas-purchase-checkbox vas-mt-md">
+                    <input
+                      type="checkbox"
+                      checked={ipidChecked}
+                      onChange={(e) => setIpidChecked(e.target.checked)}
+                    />
+                    <span>Zapoznałem/am się z IPID</span>
+                  </label>
+                  <label className="vas-purchase-checkbox vas-mt-md">
+                    <input
+                      type="checkbox"
+                      checked={ipidOwuChecked}
+                      onChange={(e) => setIpidOwuChecked(e.target.checked)}
+                    />
+                    <span>Zapoznałem/am się z OWU</span>
+                  </label>
                 </>
               )}
 

@@ -4,7 +4,6 @@ import LoginSMS from './components/LoginSMS.jsx'
 import LenderDashboard from './components/LenderDashboard.jsx'
 import AdminPlatform from './components/AdminPlatform.jsx'
 import VasPurchaseModal from './components/VasPurchaseModal.jsx'
-import VasCatalogProductCard from './components/VasCatalogProductCard.jsx'
 import {
   LENDER,
   sumPurchaseLenderPoints,
@@ -512,7 +511,6 @@ export default function App() {
   const [loginMode, setLoginMode] = useState('loan')
   const [toast, setToast] = useState(null)
   const [vasPurchaseProduct, setVasPurchaseProduct] = useState(null)
-  const [productCardAck, setProductCardAck] = useState({})
 
   const [pointsByClient, setPointsByClient] = useState(() =>
     buildInitialState().pointsByClient,
@@ -1850,21 +1848,26 @@ export default function App() {
                     const displayPrice = getPriceForProduct(p.id, LENDER.id)
                     const displayPoints = getPointsForProduct(p.id, LENDER.id)
                     return (
-                      <VasCatalogProductCard
-                        key={p.id}
-                        product={p}
-                        displayPrice={displayPrice}
-                        displayPoints={displayPoints}
-                        formatMoney={formatMoney}
-                        ack={productCardAck[p.id]}
-                        onAckChange={(field, value) =>
-                          setProductCardAck((prev) => ({
-                            ...prev,
-                            [p.id]: { ...prev[p.id], [field]: value },
-                          }))
-                        }
-                        onBuy={() => setVasPurchaseProduct(p)}
-                      />
+                      <article key={p.id} className="vas-product-card">
+                        <div className="vas-product-icon" aria-hidden>
+                          {p.icon}
+                        </div>
+                        <h3 className="vas-h3">{p.name}</h3>
+                        <p className="vas-muted vas-text-sm">{p.description}</p>
+                        <div className="vas-product-price-row">
+                          <div>
+                            <div className="vas-price">{formatMoney(displayPrice)}</div>
+                          </div>
+                          <div className="vas-points-badge">+{displayPoints} pkt</div>
+                        </div>
+                        <button
+                          type="button"
+                          className="vas-btn vas-btn-secondary vas-btn-block"
+                          onClick={() => setVasPurchaseProduct(p)}
+                        >
+                          Kup VAS
+                        </button>
+                      </article>
                     )
                   })}
                 </div>
