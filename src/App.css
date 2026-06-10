@@ -1267,6 +1267,47 @@
   font-size: 22px;
 }
 
+.vas-product-card-prebuy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.vas-product-card-link {
+  font-size: 13px;
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.vas-product-card-link:hover {
+  color: #1d4ed8;
+}
+
+.vas-product-card-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--vas-ink);
+  cursor: pointer;
+}
+
+.vas-product-card-checkbox input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.vas-product-card-buy {
+  margin-top: 12px;
+}
+
+.vas-product-card-buy:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .vas-product-price-row {
   display: flex;
   align-items: flex-end;

@@ -92,10 +92,7 @@ export default function VasPurchaseModal({
 
   const [step, setStep] = useState(1)
   const [phase, setPhase] = useState('form')
-  const [teleRegulaminChecked, setTeleRegulaminChecked] = useState(false)
   const [teleContractChecked, setTeleContractChecked] = useState(false)
-  const [ipidChecked, setIpidChecked] = useState(false)
-  const [ipidOwuChecked, setIpidOwuChecked] = useState(false)
   const [pdfDemoMessage, setPdfDemoMessage] = useState(false)
   const [hasExistingInsurance, setHasExistingInsurance] = useState(null)
   const [meetsNeeds, setMeetsNeeds] = useState(null)
@@ -106,10 +103,7 @@ export default function VasPurchaseModal({
   const resetState = () => {
     setStep(1)
     setPhase('form')
-    setTeleRegulaminChecked(false)
     setTeleContractChecked(false)
-    setIpidChecked(false)
-    setIpidOwuChecked(false)
     setPdfDemoMessage(false)
     setHasExistingInsurance(null)
     setMeetsNeeds(null)
@@ -142,8 +136,8 @@ export default function VasPurchaseModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTelemedicine, step, phase])
 
-  const teleStep1Valid = teleRegulaminChecked && teleContractChecked
-  const insuranceStep1Valid = ipidChecked && ipidOwuChecked
+  const teleStep1Valid = teleContractChecked
+  const insuranceStep1Valid = true
   const insuranceStep2Valid =
     hasExistingInsurance !== null &&
     meetsNeeds !== null &&
@@ -308,16 +302,6 @@ export default function VasPurchaseModal({
                   <div className="vas-purchase-price-box">
                     Cena: {displayPrice} zł | Otrzymasz: +{displayPoints} pkt
                   </div>
-                  <label className="vas-purchase-checkbox vas-mb-md">
-                    <input
-                      type="checkbox"
-                      checked={teleRegulaminChecked}
-                      onChange={(e) => setTeleRegulaminChecked(e.target.checked)}
-                    />
-                    <span>
-                      Zapoznałem się z zakresem usługi i regulaminem Telemedi
-                    </span>
-                  </label>
                   <div className="vas-purchase-legal-text">
                     <p className="vas-purchase-legal-intro">Dokonując płatności:</p>
                     <ul>
@@ -335,9 +319,6 @@ export default function VasPurchaseModal({
                       <li>akceptujesz warunki umowy z RANTHERI SERVICE OÜ</li>
                     </ul>
                   </div>
-                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
-                    Pobierz wzór umowy
-                  </a>
                   <label className="vas-purchase-checkbox vas-mt-md">
                     <input
                       type="checkbox"
@@ -421,25 +402,6 @@ export default function VasPurchaseModal({
                       <dd>{ipid.exclusions}</dd>
                     </div>
                   </dl>
-                  <label className="vas-purchase-checkbox vas-mb-md">
-                    <input
-                      type="checkbox"
-                      checked={ipidChecked}
-                      onChange={(e) => setIpidChecked(e.target.checked)}
-                    />
-                    <span>Zapoznałem się z kartą produktu IPID</span>
-                  </label>
-                  <a href="#" className="vas-purchase-link" onClick={(e) => e.preventDefault()}>
-                    Pobierz Ogólne Warunki Ubezpieczenia (OWU)
-                  </a>
-                  <label className="vas-purchase-checkbox vas-mt-md">
-                    <input
-                      type="checkbox"
-                      checked={ipidOwuChecked}
-                      onChange={(e) => setIpidOwuChecked(e.target.checked)}
-                    />
-                    <span>Zapoznałem/am się z Ogólnymi Warunkami Ubezpieczenia (OWU)</span>
-                  </label>
                 </>
               )}
 
