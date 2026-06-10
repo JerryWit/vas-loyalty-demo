@@ -2472,6 +2472,330 @@
   font-weight: 600;
 }
 
+/* VAS purchase modal */
+.vas-purchase-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.vas-purchase-modal {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(90svh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--vas-white);
+  border-radius: var(--vas-radius-lg);
+  box-shadow: 0 24px 48px rgba(10, 22, 40, 0.25);
+  overflow: hidden;
+}
+
+.vas-purchase-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vas-slate);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.vas-purchase-close:hover {
+  background: var(--vas-mist);
+  color: var(--vas-ink);
+}
+
+.vas-purchase-progress {
+  padding: 20px 24px 0;
+}
+
+.vas-purchase-progress-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--vas-mist);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.vas-purchase-progress-fill {
+  height: 100%;
+  background: var(--vas-navy-800);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.vas-purchase-progress-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vas-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.vas-purchase-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 20px;
+}
+
+.vas-purchase-title {
+  margin: 0 0 12px;
+  padding-right: 28px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--vas-navy-900);
+  line-height: 1.3;
+}
+
+.vas-purchase-subtitle {
+  margin: -6px 0 16px;
+  font-size: 13px;
+  color: var(--vas-slate);
+}
+
+.vas-purchase-icon-lg {
+  font-size: 48px;
+  text-align: center;
+  margin: 8px 0 16px;
+}
+
+.vas-purchase-features {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  color: var(--vas-ink);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.vas-purchase-price-box {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: var(--vas-radius-sm);
+  background: var(--vas-snow);
+  border: 1px solid var(--vas-mist);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--vas-navy-900);
+  text-align: center;
+}
+
+.vas-purchase-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--vas-ink);
+  cursor: pointer;
+}
+
+.vas-purchase-checkbox input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.vas-purchase-ipid {
+  margin: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vas-purchase-ipid dt {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--vas-slate);
+  margin-bottom: 2px;
+}
+
+.vas-purchase-ipid dd {
+  margin: 0;
+  font-size: 14px;
+  color: var(--vas-ink);
+}
+
+.vas-purchase-client-data {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: var(--vas-radius-sm);
+  background: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vas-purchase-client-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.vas-purchase-client-row span {
+  color: var(--vas-slate);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.vas-purchase-field {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.vas-purchase-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vas-ink);
+}
+
+.vas-purchase-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--vas-mist);
+  border-radius: var(--vas-radius-sm);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--vas-ink);
+}
+
+.vas-purchase-input:focus {
+  outline: 2px solid rgba(15, 39, 68, 0.2);
+  border-color: var(--vas-navy-700);
+}
+
+.vas-purchase-apk-question {
+  margin-bottom: 14px;
+}
+
+.vas-purchase-apk-label {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--vas-ink);
+}
+
+.vas-purchase-yesno {
+  display: flex;
+  gap: 8px;
+}
+
+.vas-purchase-yesno-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--vas-mist);
+  border-radius: var(--vas-radius-sm);
+  background: var(--vas-white);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vas-slate);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.vas-purchase-yesno-btn--active {
+  border-color: var(--vas-navy-800);
+  background: var(--vas-navy-800);
+  color: var(--vas-white);
+}
+
+.vas-purchase-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.vas-purchase-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vas-mist);
+}
+
+.vas-purchase-summary-row span {
+  color: var(--vas-slate);
+}
+
+.vas-purchase-processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+  text-align: center;
+  color: var(--vas-slate);
+  font-size: 14px;
+}
+
+.vas-purchase-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--vas-mist);
+  border-top-color: var(--vas-navy-800);
+  border-radius: 50%;
+  animation: vas-lender-spin 0.8s linear infinite;
+}
+
+.vas-purchase-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--vas-mist);
+  background: var(--vas-white);
+}
+
+.vas-purchase-footer .vas-btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.vas-purchase-success {
+  padding: 32px 24px 24px;
+  text-align: center;
+}
+
+.vas-purchase-success-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 56px;
+}
+
+.vas-purchase-success-text {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--vas-ink);
+}
+
 /* Root override when app is mounted */
 #root {
   width: 100%;

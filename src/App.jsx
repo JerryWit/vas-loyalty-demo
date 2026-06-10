@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import LoginSMS from './components/LoginSMS.jsx'
 import LenderDashboard from './components/LenderDashboard.jsx'
 import AdminPlatform from './components/AdminPlatform.jsx'
+import VasPurchaseModal from './components/VasPurchaseModal.jsx'
 import {
   LENDER,
   sumPurchaseLenderPoints,
@@ -38,6 +39,8 @@ const BASE_CLIENTS = [
   {
     id: 'c1',
     name: 'Jan Kowalski',
+    pesel: '90010112345',
+    address: 'ul. Marszałkowska 12/4, 00-590 Warszawa',
     loanNumber: 'SP-1001',
     loanAmount: 2500,
     basePoints: 0,
@@ -47,6 +50,8 @@ const BASE_CLIENTS = [
   {
     id: 'c2',
     name: 'Anna Nowak',
+    pesel: '85031567890',
+    address: 'ul. Długa 8, 80-827 Gdańsk',
     loanNumber: 'SP-1002',
     loanAmount: 1800,
     basePoints: 0,
@@ -55,6 +60,8 @@ const BASE_CLIENTS = [
   {
     id: 'c3',
     name: 'Piotr Zieliński',
+    pesel: '92072254321',
+    address: 'al. Niepodległości 45, 61-714 Poznań',
     loanNumber: 'SP-1003',
     loanAmount: 3200,
     basePoints: 0,
@@ -503,6 +510,7 @@ export default function App() {
   const [clientScreen, setClientScreen] = useState('home')
   const [loginMode, setLoginMode] = useState('loan')
   const [toast, setToast] = useState(null)
+  const [vasPurchaseProduct, setVasPurchaseProduct] = useState(null)
 
   const [pointsByClient, setPointsByClient] = useState(() =>
     buildInitialState().pointsByClient,
@@ -1855,7 +1863,7 @@ export default function App() {
                         <button
                           type="button"
                           className="vas-btn vas-btn-secondary vas-btn-block"
-                          onClick={() => buyProduct(p)}
+                          onClick={() => setVasPurchaseProduct(p)}
                         >
                           Kup VAS
                         </button>
@@ -2154,6 +2162,18 @@ export default function App() {
           Konfiguracja LoyalVAS (/admin)
         </Link>
       </footer>
+
+      {vasPurchaseProduct && sessionClient ? (
+        <VasPurchaseModal
+          product={vasPurchaseProduct}
+          sessionClient={sessionClient}
+          displayPrice={getPriceForProduct(vasPurchaseProduct.id, LENDER.id)}
+          displayPoints={getPointsForProduct(vasPurchaseProduct.id, LENDER.id)}
+          formatMoney={formatMoney}
+          onClose={() => setVasPurchaseProduct(null)}
+          onPurchaseComplete={buyProduct}
+        />
+      ) : null}
 
       {toast ? (
         <div className={`vas-toast vas-toast-${toast.type}`} role="status">
