@@ -1,7 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { LENDER } from '../data/vasCatalog.js'
 
 /** legalName — tylko do ewidencji demo; w UI pokazujemy wyłącznie brand. */
 const LENDER_BRANDS = [
+  { brand: LENDER.name, legalName: 'Demo Financial Services Sp. z o.o.' },
   { brand: 'KredytOK', legalName: 'Capital Service' },
   { brand: 'Szybka Gotówka', legalName: 'Capital Service' },
   { brand: 'PożyczkaPLUS', legalName: 'Funding Circle' },
