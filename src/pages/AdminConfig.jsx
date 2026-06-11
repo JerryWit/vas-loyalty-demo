@@ -95,7 +95,7 @@ function buildBenefits(overrides) {
 }
 
 const DEFAULT_LENDER_CONFIGS = {
-  Wandoo: {
+  QuickLender: {
     products: buildProducts({
       p1: { active: true, price: 120 },
       p2: { active: true, price: 240 },

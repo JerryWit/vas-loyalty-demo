@@ -2,14 +2,14 @@ export const LENDER_POINTS_CONFIG_KEY = 'lenderPointsConfig'
 
 export const LENDER = {
   id: 'ekspres',
-  name: 'Wandoo',
+  name: 'QuickLender',
   commissionPercent: 25,
   portalUrl: 'https://www.eksprespozyczka.pl/demo-portal',
 }
 
 /** Id pożyczkodawcy w lenderPointsConfig ↔ nazwa w panelu admin. */
 export const LENDER_ADMIN_TABS = [
-  { key: 'ekspres', label: 'Wandoo' },
+  { key: 'ekspres', label: 'QuickLender' },
   { key: 'kredytok', label: 'KredytOK' },
   { key: 'szybkagotowka', label: 'Szybka Gotówka' },
   { key: 'pozyczkaplus', label: 'PożyczkaPLUS' },
