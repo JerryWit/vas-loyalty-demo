@@ -9,7 +9,7 @@ export const LENDER = {
 
 /** Id pożyczkodawcy w lenderPointsConfig ↔ nazwa w panelu admin. */
 export const LENDER_ADMIN_TABS = [
-  { key: 'ekspres', label: 'QuickLender' },
+  { key: 'ekspres', label: LENDER.name },
   { key: 'kredytok', label: 'KredytOK' },
   { key: 'szybkagotowka', label: 'Szybka Gotówka' },
   { key: 'pozyczkaplus', label: 'PożyczkaPLUS' },

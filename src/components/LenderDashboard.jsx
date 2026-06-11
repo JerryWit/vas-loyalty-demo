@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { LENDER } from '../data/vasCatalog.js'
 import {
   getClientStats,
   getRedemptionPointsCost,
@@ -143,8 +144,19 @@ function HorizontalBarChart({ data, colors }) {
   )
 }
 
+function formatRequestDate(iso) {
+  if (!iso) return '—'
+  return new Intl.DateTimeFormat('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso))
+}
+
 export default function LenderDashboard({
-  lenderName = 'QuickLender',
+  lenderName = LENDER.name,
   lenderId = 'ekspres',
   purchases = [],
   pointsHistory = [],
@@ -155,6 +167,8 @@ export default function LenderDashboard({
   repaymentExtraDays = {},
   baseClients = [],
   onGrantLenderPoints,
+  onApproveLoyalvasRequest,
+  onRejectLoyalvasRequest,
 }) {
   const [webhookClientId, setWebhookClientId] = useState('SP-1001')
   const [webhookBenefitId, setWebhookBenefitId] = useState('prolongata_30')
@@ -164,6 +178,8 @@ export default function LenderDashboard({
   const [grantReason, setGrantReason] = useState('powitalne')
   const [grantPoints, setGrantPoints] = useState(100)
   const [grantSuccessMessage, setGrantSuccessMessage] = useState('')
+  const [loyalvasHistoryOpen, setLoyalvasHistoryOpen] = useState(false)
+  const [loyalvasPayloadOpen, setLoyalvasPayloadOpen] = useState({})
 
   const clientById = useMemo(
     () => Object.fromEntries(baseClients.map((c) => [c.id, c])),
@@ -323,6 +339,24 @@ export default function LenderDashboard({
     }
   }
 
+  const pendingLoyalvasRequests = useMemo(
+    () => lenderRedemptions.filter((r) => r.prolongStatus === 'pending'),
+    [lenderRedemptions],
+  )
+
+  const loyalvasHistory = useMemo(
+    () =>
+      lenderRedemptions
+        .filter((r) => r.prolongStatus === 'confirmed' || r.prolongStatus === 'rejected')
+        .sort((a, b) => new Date(b.at ?? 0) - new Date(a.at ?? 0))
+        .slice(0, 10),
+    [lenderRedemptions],
+  )
+
+  const toggleLoyalvasPayload = (id) => {
+    setLoyalvasPayloadOpen((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
   const handleGrantPoints = () => {
     if (!onGrantLenderPoints || !grantClientId) return
     const ok = onGrantLenderPoints(grantClientId, grantPoints, grantReason, lenderId)
@@ -374,6 +408,179 @@ export default function LenderDashboard({
             <div className="vas-kpi-value">{lenderGrantedPointsTotal} pkt</div>
             <div className="vas-kpi-foot">Łącznie przyznane klientom</div>
           </article>
+        </div>
+      </section>
+
+      <section className="ld-card" aria-labelledby="ld-loyalvas-requests-heading">
+        <SectionHead title="Wnioski LoyalVAS" badge="LITE" />
+        {pendingLoyalvasRequests.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#9ca3af' }}>
+            <div style={{ fontSize: 32 }}>✓</div>
+            <p style={{ fontWeight: 600, color: '#374151' }}>Brak oczekujących wniosków</p>
+            <p style={{ fontSize: '13px' }}>
+              Gdy klient złoży wniosek przez LoyalVAS, pojawi się tu do zatwierdzenia.
+            </p>
+          </div>
+        ) : (
+          <ul className="ld-loyalvas-request-list">
+            {pendingLoyalvasRequests.map((r) => {
+              const client = clientById[r.clientId]
+              const showPayload = loyalvasPayloadOpen[r.id] ?? false
+              return (
+                <li key={r.id} className="ld-loyalvas-request-card">
+                  <div className="ld-loyalvas-request-head">
+                    <span>🔔 Nowy wniosek od klienta LoyalVAS</span>
+                    <span
+                      style={{
+                        background: '#fff7ed',
+                        color: '#c2410c',
+                        borderRadius: 4,
+                        padding: '2px 8px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      CZEKA NA DECYZJĘ
+                    </span>
+                  </div>
+                  <div className="ld-loyalvas-request-grid">
+                    <div>
+                      <span className="ld-loyalvas-meta-label">Klient</span>
+                      <strong>{client?.name ?? r.clientId}</strong>
+                    </div>
+                    <div>
+                      <span className="ld-loyalvas-meta-label">Pożyczka</span>
+                      <strong>{client?.loanNumber ?? '—'}</strong>
+                    </div>
+                    <div>
+                      <span className="ld-loyalvas-meta-label">Wniosek</span>
+                      <strong>{r.optionLabel}</strong>
+                    </div>
+                    <div>
+                      <span className="ld-loyalvas-meta-label">Punkty klienta</span>
+                      <strong>{r.points} pkt</strong>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="ld-loyalvas-toggle"
+                    onClick={() => toggleLoyalvasPayload(r.id)}
+                  >
+                    {showPayload ? 'Ukryj dane od LoyalVAS' : 'Dane od LoyalVAS'}
+                  </button>
+                  {showPayload ? (
+                    <pre
+                      style={{
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        background: '#1e293b',
+                        color: '#e2e8f0',
+                        padding: 12,
+                        borderRadius: 6,
+                        overflow: 'auto',
+                        textAlign: 'left',
+                        marginTop: 8,
+                      }}
+                    >
+                      {JSON.stringify(
+                        {
+                          loan_id: client?.loanNumber,
+                          lender_id: lenderId,
+                          points_used: r.points,
+                          benefit_type: r.prolongDays === 14 ? 'prolongata_14' : 'prolongata_30',
+                          requested_value: r.prolongDays,
+                          idempotency_key: r.id,
+                        },
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  ) : null}
+                  <div className="ld-loyalvas-request-actions">
+                    <button
+                      type="button"
+                      className="vas-btn vas-btn-primary"
+                      onClick={() => onApproveLoyalvasRequest?.(r.id)}
+                    >
+                      ✓ Zatwierdź prolongatę
+                    </button>
+                    <button
+                      type="button"
+                      className="vas-btn vas-btn-ghost"
+                      onClick={() => onRejectLoyalvasRequest?.(r)}
+                    >
+                      ✗ Odrzuć
+                    </button>
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: 6 }}>
+                    Twoja odpowiedź zostanie przekazana do LoyalVAS jako HTTP callback.
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <button
+          type="button"
+          className="ld-loyalvas-toggle ld-loyalvas-history-toggle"
+          onClick={() => setLoyalvasHistoryOpen((open) => !open)}
+        >
+          {loyalvasHistoryOpen ? 'Ukryj historię' : 'Pokaż historię'}
+        </button>
+        {loyalvasHistoryOpen ? (
+          <div className="ld-table-wrap ld-mt-md">
+            <table className="ld-table">
+              <thead>
+                <tr>
+                  <th>Czas</th>
+                  <th>Klient</th>
+                  <th>Wniosek</th>
+                  <th>Punkty</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loyalvasHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="ld-empty">
+                      Brak zakończonych wniosków.
+                    </td>
+                  </tr>
+                ) : (
+                  loyalvasHistory.map((row) => {
+                    const client = clientById[row.clientId]
+                    return (
+                      <tr key={row.id}>
+                        <td className="ld-td-nowrap">{formatRequestDate(row.at)}</td>
+                        <td>{client?.name ?? '—'}</td>
+                        <td>{row.optionLabel ?? '—'}</td>
+                        <td>{row.points ?? 0} pkt</td>
+                        <td>
+                          {row.prolongStatus === 'confirmed' ? '✓ Zatwierdzona' : '✗ Odrzucona'}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        <div
+          style={{
+            marginTop: 16,
+            padding: '12px 16px',
+            background: '#f8fafc',
+            borderRadius: 8,
+            fontSize: '12px',
+            color: '#6b7280',
+          }}
+        >
+          Tryb Lite: LoyalVAS przekazuje wnioski klientów, {lenderName} podejmuje decyzję.
+          <br />
+          Wymagany jeden endpoint callback. Dokumentacja: docs.loyalvas.pl/lite
         </div>
       </section>
 

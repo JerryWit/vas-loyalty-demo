@@ -2217,6 +2217,30 @@
   }
 }
 
+@keyframes vas-lite-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vas-lender-success-details {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--vas-radius-sm);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.vas-lender-success-details p {
+  margin: 0 0 6px;
+}
+
+.vas-lender-success-details p:last-child {
+  margin-bottom: 0;
+}
+
 .vas-lender-confirm-overlay {
   position: fixed;
   inset: 0;

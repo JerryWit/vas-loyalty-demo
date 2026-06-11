@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { VAS_PRODUCTS } from '../data/vasCatalog.js'
+import { LENDER, VAS_PRODUCTS } from '../data/vasCatalog.js'
 import {
   getRedemptionPointsCost,
   groupLenderGrantedPoints,
@@ -175,7 +175,7 @@ export default function AdminPlatform({
       id: p.id,
       date: formatTxDate(p.at),
       client: clientById[p.clientId]?.name ?? p.clientId,
-      lender: settlementModel?.lenderName ?? 'QuickLender',
+      lender: settlementModel?.lenderName ?? LENDER.name,
       type: 'purchase',
       typeLabel: 'Zakup VAS',
       points: `+${p.pointsEarned ?? 0} pkt`,
@@ -187,7 +187,7 @@ export default function AdminPlatform({
       id: r.id,
       date: formatTxDate(r.at),
       client: clientById[r.clientId]?.name ?? r.clientId,
-      lender: r.lenderName ?? settlementModel?.lenderName ?? 'QuickLender',
+      lender: r.lenderName ?? settlementModel?.lenderName ?? LENDER.name,
       type: 'redeem',
       typeLabel: r.optionLabel ?? 'Wymiana punktów',
       points: `−${getRedemptionPointsCost(r)} pkt`,

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  LENDER,
   LENDER_ADMIN_TABS,
   saveLenderPointsConfig,
   VAS_PRODUCTS,
@@ -95,7 +96,7 @@ function buildBenefits(overrides) {
 }
 
 const DEFAULT_LENDER_CONFIGS = {
-  QuickLender: {
+  [LENDER.name]: {
     products: buildProducts({
       p1: { active: true, price: 120 },
       p2: { active: true, price: 240 },

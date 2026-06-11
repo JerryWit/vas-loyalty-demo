@@ -256,6 +256,145 @@
   font-family: ui-monospace, 'Cascadia Code', monospace;
 }
 
+.ld-loyalvas-empty {
+  text-align: center;
+  padding: 24px 12px;
+}
+
+.ld-loyalvas-empty-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 56px;
+}
+
+.ld-loyalvas-empty-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--vas-navy-900);
+}
+
+.ld-loyalvas-request-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ld-loyalvas-request-card {
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  border-radius: var(--vas-radius-md);
+  padding: 16px;
+}
+
+.ld-loyalvas-request-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-weight: 700;
+  color: var(--vas-navy-900);
+}
+
+.ld-loyalvas-pending-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.ld-loyalvas-request-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ld-loyalvas-meta-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vas-slate);
+  margin-bottom: 2px;
+}
+
+.ld-loyalvas-toggle {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.ld-loyalvas-history-toggle {
+  margin-top: 16px;
+}
+
+.ld-loyalvas-payload {
+  margin: 0 0 12px;
+  padding: 12px;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.ld-loyalvas-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ld-loyalvas-callback-note {
+  margin-bottom: 0;
+}
+
+.ld-loyalvas-lite-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--vas-radius-sm);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vas-slate);
+}
+
+.ld-mt-md {
+  margin-top: 16px;
+}
+
+@media (max-width: 700px) {
+  .ld-loyalvas-request-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .vas-sr-only {
   position: absolute;
   width: 1px;

@@ -537,14 +537,21 @@ export default function App() {
   const [lenderPortalProlongSuccess, setLenderPortalProlongSuccess] = useState(null)
   const [lenderPortalRequestStatus, setLenderPortalRequestStatus] = useState(null)
   const [lenderPortalResultModal, setLenderPortalResultModal] = useState(null)
+  const [pendingSeconds, setPendingSeconds] = useState(0)
+  const [lenderPortalSuccessDetailsOpen, setLenderPortalSuccessDetailsOpen] = useState(false)
   const prolongAutoConfirmRef = useRef(null)
   const prolongAutoConfirmStartedRef = useRef(null)
   const lenderPortalResponseTimerRef = useRef(null)
+  const lenderPortalPhaseBTimerRef = useRef(null)
 
   const clearLenderPortalRequestTimers = useCallback(() => {
     if (lenderPortalResponseTimerRef.current) {
       clearTimeout(lenderPortalResponseTimerRef.current)
       lenderPortalResponseTimerRef.current = null
+    }
+    if (lenderPortalPhaseBTimerRef.current) {
+      clearTimeout(lenderPortalPhaseBTimerRef.current)
+      lenderPortalPhaseBTimerRef.current = null
     }
   }, [])
 
@@ -1040,8 +1047,57 @@ export default function App() {
       prolongDays: entry.prolongDays,
       repaymentDate: newDate,
       optionLabel: entry.optionLabel,
+      points: entry.points ?? 0,
     }
   }
+
+  const rejectProlongationRequest = (redemption) => {
+    const points = redemption.points ?? 0
+    setLenderRedemptions((prev) =>
+      prev.map((r) =>
+        r.id === redemption.id ? { ...r, prolongStatus: 'rejected' } : r,
+      ),
+    )
+    setPointsByClient((prev) => ({
+      ...prev,
+      [redemption.clientId]: (prev[redemption.clientId] ?? 0) + points,
+    }))
+    showToast('Wniosek odrzucony — punkty zwrócone klientowi.', 'warn')
+  }
+
+  const approveProlongationRequest = (redemptionId) => {
+    confirmProlongationByPlatform(redemptionId)
+    showToast('Prolongata zatwierdzona — LoyalVAS zostanie powiadomiony.')
+  }
+
+  useEffect(() => {
+    if (!lenderPortalPendingProlong || lenderPortalProlongSuccess) {
+      setPendingSeconds(0)
+      return
+    }
+    const interval = setInterval(() => setPendingSeconds((s) => s + 1), 1000)
+    return () => clearInterval(interval)
+  }, [lenderPortalPendingProlong, lenderPortalProlongSuccess])
+
+  useEffect(() => {
+    if (!lenderPortalPendingProlong || lenderPortalProlongSuccess) return
+    const current = lenderRedemptions.find((r) => r.id === lenderPortalPendingProlong.id)
+    if (current?.prolongStatus !== 'confirmed') return
+    const client = BASE_CLIENTS.find((c) => c.id === current.clientId)
+    if (!client) return
+    const extraBefore = repaymentExtraDays[current.clientId] ?? 0
+    setLenderPortalProlongSuccess({
+      prolongDays: current.prolongDays,
+      repaymentDate: getRepaymentDate(client, extraBefore + current.prolongDays),
+      optionLabel: current.optionLabel,
+      points: current.points ?? 0,
+    })
+  }, [
+    lenderPortalPendingProlong,
+    lenderPortalProlongSuccess,
+    lenderRedemptions,
+    repaymentExtraDays,
+  ])
 
   useEffect(() => {
     if (
@@ -1061,6 +1117,10 @@ export default function App() {
 
     const delayMs = 2000 + Math.floor(Math.random() * 3000)
     prolongAutoConfirmRef.current = setTimeout(() => {
+      const stillPending = lenderRedemptions.find(
+        (r) => r.id === redemptionId && r.prolongStatus === 'pending',
+      )
+      if (!stillPending) return
       const result = confirmProlongationByPlatform(redemptionId, { silent: true })
       if (result) {
         setLenderPortalProlongSuccess(result)
@@ -1088,36 +1148,46 @@ export default function App() {
       return
     }
     clearLenderPortalRequestTimers()
+    const selectedId = lenderPortalSelectedId
+    const clientId = lenderPortalClient.id
+    const responseDelayMs = 2000 + Math.floor(Math.random() * 1001)
+    const phaseAMs = Math.floor(responseDelayMs * 0.5)
+    const phaseBMs = responseDelayMs - phaseAMs
+
     setLenderPortalRequestStatus({
       type: 'loading',
       message: `Wysyłamy wniosek do ${LENDER.name}...`,
     })
-    const selectedId = lenderPortalSelectedId
-    const clientId = lenderPortalClient.id
-    const responseDelayMs = 2000 + Math.floor(Math.random() * 1001)
+
     lenderPortalResponseTimerRef.current = setTimeout(() => {
-      const webhookFailed = Math.random() < 0.2
-      if (webhookFailed) {
-        setLenderPortalRequestStatus(null)
-        setLenderPortalResultModal({ type: 'warning' })
-        return
-      }
-      const redemptionId = confirmRedemptionViaLenderApi(clientId, selectedId, {
-        silent: true,
-        channel: 'portal',
+      setLenderPortalRequestStatus({
+        type: 'waiting_confirm',
+        message: `${LENDER.name} rozpatruje wniosek...`,
       })
-      if (!redemptionId) {
+      lenderPortalPhaseBTimerRef.current = setTimeout(() => {
+        const webhookFailed = Math.random() < 0.2
+        if (webhookFailed) {
+          setLenderPortalRequestStatus(null)
+          setLenderPortalResultModal({ type: 'warning' })
+          return
+        }
+        const redemptionId = confirmRedemptionViaLenderApi(clientId, selectedId, {
+          silent: true,
+          channel: 'portal',
+        })
+        if (!redemptionId) {
+          setLenderPortalRequestStatus(null)
+          setLenderPortalResultModal({ type: 'warning' })
+          return
+        }
+        setLenderPortalSelectedId('')
         setLenderPortalRequestStatus(null)
-        setLenderPortalResultModal({ type: 'warning' })
-        return
-      }
-      if (isProlongationCatalogId(selectedId)) {
-        confirmProlongationByPlatform(redemptionId, { silent: true })
-      }
-      setLenderPortalSelectedId('')
-      setLenderPortalRequestStatus(null)
-      setLenderPortalResultModal({ type: 'success' })
-    }, responseDelayMs)
+        if (isProlongationCatalogId(selectedId)) {
+          return
+        }
+        setLenderPortalResultModal({ type: 'success' })
+      }, phaseBMs)
+    }, phaseAMs)
   }
 
   const resetDemo = () => {
@@ -1241,7 +1311,12 @@ export default function App() {
           <div className="vas-lender-portal-shell">
             <header className="vas-lender-portal-head">
               <div className="vas-lender-portal-logo">{LENDER.name}</div>
-              <p className="vas-lender-portal-tagline">Portal klienta · obsługa pożyczki</p>
+              <p className="vas-lender-portal-tagline">
+                Twoje punkty lojalnościowe · {LENDER.name}
+              </p>
+              <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: 2 }}>
+                obsługiwane przez LoyalVAS
+              </p>
             </header>
 
             {!lenderPortalClient ? (
@@ -1282,6 +1357,104 @@ export default function App() {
                     className="vas-lender-portal-card vas-lender-loan-status is-pending"
                     role="status"
                   >
+                    {(() => {
+                      const prolongDays =
+                        PROLONGATION_DAYS_BY_CATALOG[lenderPortalPendingProlong.catalogId] ??
+                        lenderPortalPendingProlong.prolongDays
+                      const points = lenderPortalPendingProlong.points
+                      const timelineSteps = [
+                        {
+                          state: 'done',
+                          icon: '✓',
+                          title: 'Wniosek złożony',
+                          desc: `${prolongDays} dni — ${points} pkt`,
+                        },
+                        {
+                          state: 'done',
+                          icon: '✓',
+                          title: `Przekazano do ${LENDER.name}`,
+                          desc: 'LoyalVAS wysłał wniosek',
+                        },
+                        {
+                          state: 'active',
+                          icon: 'spinner',
+                          title: `${LENDER.name} rozpatruje`,
+                          desc: 'Trwa weryfikacja...',
+                        },
+                        {
+                          state: 'waiting',
+                          icon: '○',
+                          title: 'Termin spłaty zaktualizowany',
+                          desc: `Po decyzji ${LENDER.name}`,
+                        },
+                      ]
+                      return (
+                        <>
+                          <div
+                            style={{
+                              borderLeft: '2px solid #e5e7eb',
+                              paddingLeft: 16,
+                              marginBottom: 20,
+                            }}
+                          >
+                            {timelineSteps.map((step) => (
+                              <div
+                                key={step.title}
+                                style={{
+                                  display: 'flex',
+                                  gap: 10,
+                                  alignItems: 'flex-start',
+                                  marginBottom: 12,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 12,
+                                    flexShrink: 0,
+                                    background:
+                                      step.state === 'done'
+                                        ? '#dcfce7'
+                                        : step.state === 'active'
+                                          ? '#dbeafe'
+                                          : '#f3f4f6',
+                                    color:
+                                      step.state === 'done'
+                                        ? '#16a34a'
+                                        : step.state === 'active'
+                                          ? '#2563eb'
+                                          : '#9ca3af',
+                                  }}
+                                  aria-hidden="true"
+                                >
+                                  {step.icon === 'spinner' ? (
+                                    <span className="vas-lender-pending-spinner" />
+                                  ) : (
+                                    step.icon
+                                  )}
+                                </span>
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: 14 }}>{step.title}</div>
+                                  <div className="vas-muted vas-text-sm">{step.desc}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: 8 }}>
+                            Czas oczekiwania na {LENDER.name}: {pendingSeconds}s
+                          </p>
+                          <div className="vas-lender-calm-note" style={{ marginBottom: 16 }}>
+                            Twoje punkty są zablokowane do czasu decyzji {LENDER.name}. Możesz
+                            zamknąć stronę — wyślemy SMS gdy {LENDER.name} zatwierdzi wniosek.
+                          </div>
+                        </>
+                      )
+                    })()}
                     <div className="vas-lender-status-eyebrow">Status pożyczki</div>
                     <h1 className="vas-lender-status-title">Wniosek o przedłużenie w realizacji</h1>
                     <p className="vas-lender-status-lead">
@@ -1291,7 +1464,7 @@ export default function App() {
                     <p className="vas-lender-pending-body">
                       Wniosek został wysłany do <strong>{LENDER.name}</strong> i oczekuje na
                       potwierdzenie w systemie pożyczkodawcy. Nie zamykaj tego okna — poczekaj na
-                      potwierdzenie od Pożyczkodawcy.
+                      potwierdzenie od {LENDER.name}.
                     </p>
                     <div className="vas-lender-pending-date">
                       <span className="vas-muted vas-text-sm">Spłata po zatwierdzeniu wniosku</span>
@@ -1356,7 +1529,7 @@ export default function App() {
                   <>
                 <section className="vas-lender-portal-card">
                   <div className="vas-lender-api-row">
-                    <span className="vas-lender-api-label">Zapytanie API → platforma VAS</span>
+                    <span className="vas-lender-api-label">LoyalVAS · saldo punktów</span>
                     <span className="vas-lender-api-ok">Saldo potwierdzone</span>
                   </div>
                   <p className="vas-lender-points-balance">
@@ -1364,8 +1537,8 @@ export default function App() {
                     <strong>{lenderPortalPoints} punktów</strong> lojalnościowych.
                   </p>
                   <p className="vas-muted vas-text-sm">
-                    Wybierz, na co chcesz je przeznaczyć. Po potwierdzeniu wyślemy zapis
-                    wykorzystania do platformy (demo).
+                    Wybierz benefit i złóż wniosek do {LENDER.name}. Decyzja o przyznaniu
+                    należy do {LENDER.name}.
                   </p>
                 </section>
 
@@ -1432,10 +1605,13 @@ export default function App() {
                   <button
                     type="button"
                     className="vas-btn vas-btn-primary vas-btn-block vas-mt-md"
-                    disabled={!lenderPortalSelectedId || lenderPortalRequestStatus?.type === 'loading'}
+                    disabled={
+                      !lenderPortalSelectedId ||
+                      lenderPortalRequestStatus?.type === 'loading'
+                    }
                     onClick={submitLenderPortalRedemption}
                   >
-                    Potwierdź wykorzystanie punktów
+                    Złóż wniosek do {LENDER.name}
                   </button>
                 </section>
                   </>
@@ -1453,19 +1629,49 @@ export default function App() {
                         ✓
                       </div>
                       <h2 id="lender-prolong-success-title" className="vas-lender-confirm-title">
-                        Pożyczkodawca potwierdził przedłużenie
+                        {LENDER.name} przyznał przedłużenie
                       </h2>
+                      <p className="vas-muted vas-text-sm vas-mb-md">
+                        Wniosek złożony przez LoyalVAS · punkty zrealizowane
+                      </p>
                       <p className="vas-lender-confirm-body">
-                        <strong>{LENDER.name}</strong> zaakceptował wykorzystanie punktów w programie
-                        lojalnościowym na przedłużenie spłaty pożyczki o{' '}
-                        <strong>{lenderPortalProlongSuccess.prolongDays} dni</strong> do dnia{' '}
+                        {LENDER.name} zatwierdził przedłużenie spłaty pożyczki{' '}
+                        <strong>{lenderPortalClient.loanNumber}</strong> o{' '}
+                        <strong>{lenderPortalProlongSuccess.prolongDays} dni</strong>. Nowy termin
+                        spłaty:{' '}
                         <strong>
                           {formatDateOnly(lenderPortalProlongSuccess.repaymentDate)}
                         </strong>
                         .
-                        <br />
-                        <br />
-                        Szczegóły otrzymasz SMS-em i mailem od <strong>{LENDER.name}</strong>.
+                      </p>
+                      <button
+                        type="button"
+                        className="vas-btn vas-btn-ghost vas-btn-sm vas-mb-md"
+                        onClick={() =>
+                          setLenderPortalSuccessDetailsOpen((open) => !open)
+                        }
+                      >
+                        {lenderPortalSuccessDetailsOpen ? 'Ukryj szczegóły' : 'Szczegóły'}
+                      </button>
+                      {lenderPortalSuccessDetailsOpen ? (
+                        <div className="vas-lender-success-details vas-mb-md">
+                          <p>
+                            Punkty użyte: <strong>{lenderPortalProlongSuccess.points ?? 0} pkt</strong>
+                          </p>
+                          <p>
+                            Benefit:{' '}
+                            <strong>prolongata_{lenderPortalProlongSuccess.prolongDays}</strong>
+                          </p>
+                          <p>
+                            Decyzja: <strong>{LENDER.name}</strong>
+                          </p>
+                          <p>
+                            Kanał: <strong>LoyalVAS (webhook)</strong>
+                          </p>
+                        </div>
+                      ) : null}
+                      <p className="vas-muted vas-text-sm vas-mb-md">
+                        Potwierdzenie SMS i email wyśle {LENDER.name}.
                       </p>
                       <div className="vas-lender-confirm-actions">
                         <button
@@ -1473,6 +1679,7 @@ export default function App() {
                           className="vas-btn vas-btn-primary vas-btn-block vas-lender-confirm-cta"
                           onClick={() => {
                             setLenderPortalProlongSuccess(null)
+                            setLenderPortalSuccessDetailsOpen(false)
                             leaveLenderPortal()
                             logoutClient()
                           }}
@@ -1490,7 +1697,9 @@ export default function App() {
                     </div>
                   </div>
                 ) : null}
-                {lenderPortalRequestStatus?.type === 'loading' || lenderPortalResultModal ? (
+                {lenderPortalRequestStatus?.type === 'loading' ||
+                lenderPortalRequestStatus?.type === 'waiting_confirm' ||
+                lenderPortalResultModal ? (
                   <div
                     role="dialog"
                     aria-modal="true"
@@ -1516,7 +1725,8 @@ export default function App() {
                         textAlign: 'center',
                       }}
                     >
-                      {lenderPortalRequestStatus?.type === 'loading' ? (
+                      {lenderPortalRequestStatus?.type === 'loading' ||
+                      lenderPortalRequestStatus?.type === 'waiting_confirm' ? (
                         <>
                           <div
                             aria-hidden="true"
@@ -1541,6 +1751,24 @@ export default function App() {
                           <p className="vas-muted vas-text-sm">
                             Wysyłamy powiadomienie do {LENDER.name}. Proszę czekać...
                           </p>
+                          {lenderPortalRequestStatus?.type === 'waiting_confirm' ? (
+                            <div
+                              style={{
+                                fontFamily: 'monospace',
+                                fontSize: '11px',
+                                background: '#f0f0f0',
+                                borderRadius: 6,
+                                padding: '6px 10px',
+                                marginTop: 8,
+                                color: '#666',
+                                textAlign: 'left',
+                              }}
+                            >
+                              ↗ LoyalVAS → webhook → {LENDER.name}
+                              <br />
+                              ⟳ Oczekuje na decyzję {LENDER.name}...
+                            </div>
+                          ) : null}
                         </>
                       ) : (
                         <>
@@ -1558,14 +1786,17 @@ export default function App() {
                           </div>
                           <h2 className="vas-h2 vas-mb-sm">
                             {lenderPortalResultModal.type === 'success'
-                              ? 'Wniosek zaakceptowany!'
+                              ? `${LENDER.name} przyjął wniosek`
                               : 'Wniosek w trakcie weryfikacji'}
                           </h2>
                           {lenderPortalResultModal.type === 'success' ? (
                             <>
                               <p className="vas-mb-sm">
-                                {LENDER.name} zaakceptowała wykorzystanie punktów w programie
-                                lojalnościowym na przedłużenie spłaty pożyczki o 30 dni.
+                                {LENDER.name} zatwierdził wniosek o przedłużenie spłaty o{' '}
+                                {PROLONGATION_DAYS_BY_CATALOG[lenderPortalSelectedId] ??
+                                  lenderRedemptions[0]?.prolongDays ??
+                                  '—'}{' '}
+                                dni.
                               </p>
                               <p className="vas-muted vas-text-sm vas-mb-md">
                                 Szczegóły otrzymasz SMS-em i mailem od {LENDER.name}.
@@ -2078,6 +2309,8 @@ export default function App() {
                 repaymentExtraDays={repaymentExtraDays}
                 baseClients={BASE_CLIENTS}
                 onGrantLenderPoints={grantLenderPoints}
+                onApproveLoyalvasRequest={approveProlongationRequest}
+                onRejectLoyalvasRequest={rejectProlongationRequest}
               />
             </section>
           </main>

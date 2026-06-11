@@ -1,9 +1,11 @@
+import { LENDER } from './vasCatalog.js'
+
 export const INITIAL_POINTS_HISTORY = [
   {
     id: 'welcome-jan-001',
     clientId: 'c1',
     lenderId: 'ekspres',
-    lenderName: 'QuickLender',
+    lenderName: LENDER.name,
     points: 20,
     source: 'lender',
     reason: 'Punkty powitalne',
