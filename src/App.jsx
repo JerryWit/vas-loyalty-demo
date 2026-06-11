@@ -140,10 +140,10 @@ const HOME_OFFER_HIGHLIGHTS = [
 ]
 
 const LOYALTY_HOME_PERKS = [
-  { icon: '📊', text: 'Kalkulator: na co stać Twoje punkty (informacyjnie)' },
-  { icon: '🏦', text: 'Wykorzystanie punktów wyłącznie w portalu pożyczkodawcy' },
-  { icon: '🔒', text: 'Platforma nie zmienia warunków umowy — tylko ewidencja' },
-  { icon: '🎁', text: 'Punkty za zakupy VAS naliczane automatycznie' },
+  { icon: '⭐', text: 'Punkty za każdy zakup VAS — naliczane automatycznie' },
+  { icon: '🏦', text: 'Wymiana punktów na korzyści u pożyczkodawcy (prolongata, spłata)' },
+  { icon: '🛍️', text: 'Wymiana punktów u partnerów programu — sklepy i usługi' },
+  { icon: '🔒', text: 'Platforma nie zmienia warunków umowy pożyczki' },
 ]
 
 const OFFER_CATEGORIES = [
@@ -1839,11 +1839,11 @@ export default function App() {
       {role === 'client' && !clientSessionId && clientScreen === 'home' ? (
         <main className="vas-home-main">
           <div className="vas-home-intro">
-            <p className="vas-login-eyebrow">VAS · usługi dodatkowe</p>
-            <h1 className="vas-home-title">W czym możemy Ci pomóc?</h1>
+            <p className="vas-login-eyebrow">LoyalVAS · program lojalnościowy</p>
+            <h1 className="vas-home-title">Zbieraj punkty. Korzystaj gdzie chcesz.</h1>
             <p className="vas-home-lead">
-              Wybierz jedną z dwóch ścieżek — przegląd oferty lub dołączenie do programu
-              lojalnościowego dla klientów {LENDER.name}.
+              Kupuj usługi dodatkowe, zbieraj punkty lojalnościowe i wymieniaj je na korzyści —
+              u swojego pożyczkodawcy i u partnerów programu.
             </p>
           </div>
           <div className="vas-home-tiles">
@@ -1853,9 +1853,8 @@ export default function App() {
               </span>
               <h2 className="vas-home-tile-title">Przeglądaj ofertę</h2>
               <p className="vas-home-tile-lead">
-                Odkryj usługi dodatkowe dopasowane do życia na co dzień — od ochrony
-                finansowej po zdrowie, rozwój i spokój w domu. Wybierz to, czego
-                naprawdę potrzebujesz, w przejrzystych pakietach VAS.
+                Usługi dodatkowe dopasowane do codziennego życia — ochrona finansowa, zdrowie,
+                rozwój i spokój w domu. Za każdy zakup zbierasz punkty LoyalVAS.
               </p>
               <ul className="vas-home-offer-highlights vas-home-offer-highlights-compact">
                 {HOME_OFFER_HIGHLIGHTS.map((item) => (
@@ -1868,8 +1867,8 @@ export default function App() {
                 ))}
               </ul>
               <p className="vas-home-offer-footer">
-                Setki kombinacji pakietów — sprawdź szczegóły i wybierz najlepszą ofertę
-                dla siebie.
+                Punkty za zakupy możesz wymienić na korzyści u pożyczkodawcy lub u partnerów
+                programu.
               </p>
               <button
                 type="button"
@@ -1883,12 +1882,10 @@ export default function App() {
               <span className="vas-home-tile-icon" aria-hidden>
                 ⭐
               </span>
-              <h2 className="vas-home-tile-title">
-                Mam pożyczkę i chcę dołączyć do programu lojalnościowego
-              </h2>
+              <h2 className="vas-home-tile-title">Mam aktywną pożyczkę</h2>
               <p className="vas-home-tile-desc vas-home-tile-desc-tight">
-                Dołącz do programu lojalnościowego {LENDER.name}: zbieraj punkty za
-                zakupy VAS i wymieniaj je na korzyści przy spłacie pożyczki.
+                Zaloguj się numerem pożyczki — sprawdź saldo punktów, kup usługi dodatkowe i
+                wymieniaj punkty na korzyści u swojego pożyczkodawcy.
               </p>
               <ul className="vas-home-loyalty-perks" aria-label="Przykładowe korzyści programu">
                 {LOYALTY_HOME_PERKS.map((perk) => (
@@ -1992,7 +1989,7 @@ export default function App() {
           </div>
           <div className="vas-card vas-card-tint vas-mt-lg">
             <p className="vas-muted vas-mb-md">
-              Produkty dostępne w programie dla klientów {LENDER.name} (po zalogowaniu):
+              Produkty dostępne w programie lojalnościowym (po zalogowaniu):
             </p>
             <ul className="vas-product-mini">
               {VAS_PRODUCTS.map((p) => (
@@ -2013,6 +2010,20 @@ export default function App() {
 
       {role === 'client' && clientSessionId && clientScreen !== 'lender-portal' ? (
         <div className="vas-client-layout">
+          {clientSessionId ? (
+            <div
+              style={{
+                background: '#eff6ff',
+                borderBottom: '1px solid #bfdbfe',
+                padding: '8px 16px',
+                fontSize: '13px',
+                color: '#1e40af',
+                textAlign: 'center',
+              }}
+            >
+              Program lojalnościowy <strong>{LENDER.name}</strong> · obsługiwany przez LoyalVAS
+            </div>
+          ) : null}
           <main className="vas-client-main">
             <section className="vas-section vas-client-hero-card" aria-label="Podsumowanie konta">
               <div className="vas-client-hero-top">
